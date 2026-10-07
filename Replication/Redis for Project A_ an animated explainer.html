@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redis for Project A: an animated explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sans:"Archivo",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --bg:#e9edf2; --panel:#f8fafc; --panel2:#eef2f6; --ink:#14213d; --muted:#56617a; --line:#c9d2de;
+  --leader:#2f5bea; --follower:#0f8b7d; --client:#7a4fd1; --nginx:#0b7fa8; --app:#14213d;
+  --ok:#0f8b7d; --err:#d64045; --stale:#d39a00;
+  --goodbg:#d9f2ee; --badbg:#fbe1e3; --warnbg:#fff1c7; --chip:#e3e9f1;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e141e; --panel:#151d2a; --panel2:#111823; --ink:#e4e9f1; --muted:#97a3b8; --line:#2a3546;
+    --leader:#6f93ff; --follower:#35c2ad; --client:#a988ff; --nginx:#3fb6e0; --app:#dfe6f2;
+    --ok:#2aa894; --err:#ef5f64; --stale:#f0b62a;
+    --goodbg:#123630; --badbg:#3a1a1e; --warnbg:#3a3010; --chip:#223045;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e141e; --panel:#151d2a; --panel2:#111823; --ink:#e4e9f1; --muted:#97a3b8; --line:#2a3546;
+  --leader:#6f93ff; --follower:#35c2ad; --client:#a988ff; --nginx:#3fb6e0; --app:#dfe6f2;
+  --ok:#2aa894; --err:#ef5f64; --stale:#f0b62a;
+  --goodbg:#123630; --badbg:#3a1a1e; --warnbg:#3a3010; --chip:#223045;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--leader);outline-offset:2px}
+code,.mono{font-family:var(--mono);font-size:.88em}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px 80px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:32px 0 8px}
+.top h1{margin:0;font-size:clamp(2rem,5vw,3.2rem);line-height:1.05;font-weight:800;letter-spacing:-.03em}
+.top p{margin:10px 0 0;color:var(--muted);max-width:64ch}
+.theme{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:.9rem;white-space:nowrap}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+nav.toc a{color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 12px;font-size:.85rem}
+nav.toc a:hover{border-color:var(--leader)}
+section{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;margin-top:22px}
+section h2{margin:0 0 4px;font-size:1.5rem;letter-spacing:-.01em}
+.kicker{font:600 .75rem/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.lead{color:var(--muted);margin:0 0 16px;max-width:75ch}
+.stage{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;position:relative}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 0}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:7px 12px;cursor:pointer;font-size:.9rem;font-weight:600}
+.btn:hover{border-color:var(--leader)}
+.btn.primary{background:var(--leader);border-color:var(--leader);color:#fff}
+.btn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:var(--panel);padding:7px 12px;cursor:pointer;font-size:.88rem;font-weight:600}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.label{font-size:.82rem;color:var(--muted);font-weight:600}
+.log{font-family:var(--mono);font-size:.82rem;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;height:150px;overflow:auto;margin-top:12px}
+.log div{white-space:pre-wrap;animation:fadein .25s ease}
+.log .cmd{color:var(--leader)} .log .rep{color:var(--ok)} .log .err{color:var(--err)} .log .note{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:800px){.grid2{grid-template-columns:1fr}}
+.callout{border-left:4px solid var(--leader);background:var(--panel2);padding:10px 14px;border-radius:0 10px 10px 0;margin-top:14px;font-size:.95rem}
+.callout.warn{border-color:var(--stale);background:var(--warnbg)}
+.callout.bad{border-color:var(--err);background:var(--badbg)}
+.callout.good{border-color:var(--ok);background:var(--goodbg)}
+svg text{font-family:var(--sans)}
+.svgbox{width:100%;height:auto;display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes slidein{from{opacity:0;transform:translateX(-30px) scale(.8)}to{opacity:1;transform:none}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--leader) 60%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
+@keyframes flash{0%{background:var(--warnbg)}100%{background:var(--panel)}}
+
+/* Redis data model */
+.keys{display:flex;flex-direction:column;gap:12px}
+.key{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.key .name{font-family:var(--mono);font-weight:600}
+.key .type{font-size:.75rem;color:var(--muted);margin-left:6px;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.strval{font:700 2rem/1.2 var(--mono);margin-top:4px;display:inline-block;padding:0 8px;border-radius:8px}
+.strval.flash{animation:flash .8s ease}
+.list{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;min-height:36px;align-items:center}
+.list .item{font-family:var(--mono);font-size:.82rem;background:var(--chip);border:1px solid var(--line);border-radius:8px;padding:4px 8px;position:relative}
+.list .item.new{animation:slidein .45s cubic-bezier(.2,.8,.2,1)}
+.list .item.hl{outline:2px solid var(--ok)}
+.list .idx{font-size:.65rem;color:var(--muted);display:block;line-height:1}
+.empty{color:var(--muted);font-size:.85rem;font-style:italic}
+.queue{display:flex;gap:6px;align-items:center;min-height:34px;margin-top:6px;flex-wrap:wrap}
+.queue .q{font-family:var(--mono);font-size:.75rem;padding:3px 8px;border-radius:7px;background:var(--panel);border:1px dashed var(--leader);animation:fadein .2s}
+.queue .q.run{background:var(--leader);color:#fff;border-style:solid}
+
+/* Race timeline */
+.timeline{display:grid;grid-template-columns:90px 1fr 1fr 120px;gap:6px;font-size:.88rem}
+.timeline .h{font-weight:700;color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}
+.timeline .cell{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-height:36px;font-family:var(--mono);font-size:.8rem;opacity:.15;transition:opacity .3s}
+.timeline .cell.shown{opacity:1;animation:fadein .3s}
+.timeline .cell.blank{background:transparent;border-style:dashed}
+.timeline .t{color:var(--muted);font-family:var(--mono);font-size:.8rem;padding-top:8px;opacity:.15;transition:opacity .3s}
+.timeline .t.shown{opacity:1}
+.result{margin-top:12px;font-weight:700;padding:10px 14px;border-radius:10px;display:none}
+.result.show{display:block;animation:fadein .3s}
+
+/* Replication */
+.repl{display:grid;grid-template-columns:1fr 160px 1fr;gap:12px;align-items:stretch}
+@media (max-width:800px){.repl{grid-template-columns:1fr}}
+.node{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:12px}
+.node.leader{border-color:var(--leader)} .node.follower{border-color:var(--follower)}
+.node h3{margin:0;font-size:1rem}
+.node .role{font:600 .72rem/1 var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.node.leader .role{color:var(--leader)} .node.follower .role{color:var(--follower)}
+.offset{font-family:var(--mono);font-size:.85rem;margin-top:6px}
+.offset b{font-size:1.1rem}
+.offset.behind b{color:var(--stale)}
+.link{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px}
+.wire{position:relative;width:100%;height:6px;border-radius:3px;background:var(--follower);transition:background .3s}
+.wire.down{background:repeating-linear-gradient(90deg,var(--err) 0 8px,transparent 8px 14px)}
+.pkt{position:absolute;top:-7px;left:0;height:20px;min-width:20px;padding:0 5px;border-radius:10px;background:var(--leader);color:#fff;font:600 .65rem/20px var(--mono);white-space:nowrap}
+.pkt.snap{background:var(--stale);color:#14213d}
+.backlog{margin-top:10px;font-size:.78rem}
+.backlog .slots{display:flex;gap:4px;margin-top:4px}
+.backlog .slot{flex:1;height:22px;border:1px dashed var(--line);border-radius:5px;font:600 .62rem/20px var(--mono);text-align:center;overflow:hidden}
+.backlog .slot.f{border-style:solid;background:var(--chip)}
+.backlog .slot.miss{border-color:var(--stale);background:var(--warnbg)}
+
+/* Fail-fast */
+.ffrow{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;margin-top:10px}
+.bar{position:relative;height:30px;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.bar .fill{position:absolute;inset:0 auto 0 0;width:0;background:color-mix(in srgb,var(--leader) 30%,transparent)}
+.bar .fill.err{background:color-mix(in srgb,var(--err) 35%,transparent)}
+.bar .fill.ok{background:color-mix(in srgb,var(--ok) 35%,transparent)}
+.bar .txt{position:absolute;inset:0;display:flex;align-items:center;padding:0 10px;font:600 .78rem/1 var(--mono);white-space:nowrap;overflow:hidden}
+.scale{display:flex;justify-content:space-between;font:.7rem var(--mono);color:var(--muted);margin-left:160px}
+
+pre.code{font-family:var(--mono);font-size:.84rem;line-height:1.55;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;margin:0}
+.c{color:var(--muted)} .k{color:var(--leader);font-weight:600} .s{color:var(--ok)} .n{color:var(--stale)}
+.api{display:grid;grid-template-columns:1fr;gap:10px}
+.apirow{display:grid;grid-template-columns:minmax(260px,1.1fr) 1fr;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;align-items:center}
+@media (max-width:800px){.apirow{grid-template-columns:1fr}}
+.apirow code{font-size:.85rem}
+.apirow .ret{font-size:.85rem;color:var(--muted)}
+.apirow .ret b{color:var(--ink);font-weight:600}
+.part{font:600 .68rem/1 var(--mono);border:1px solid var(--line);border-radius:6px;padding:2px 6px;margin-left:6px;color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+td code{white-space:nowrap}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Redis for Project A</h1>
+      <p>Only the parts of Redis that this project needs: what Redis is, the commands that your app sends, how a follower copies the leader, and the <code>ioredis</code> calls that you will write.</p>
+    </div>
+    <button class="theme" id="themeBtn" type="button">Theme</button>
+  </header>
+  <nav class="toc" aria-label="Sections">
+    <a href="#s1">1. The stack</a><a href="#s2">2. What Redis is</a><a href="#s3">3. Why INCR</a>
+    <a href="#s4">4. Leader and follower</a><a href="#s5">5. ioredis API</a><a href="#s6">6. Fail fast</a><a href="#s7">7. redis-cli</a>
+  </nav>
+
+  <!-- 1. STACK -->
+  <section id="s1">
+    <div class="kicker">Section 1 · The stack</div>
+    <h2>One request, from curl to Redis and back</h2>
+    <p class="lead">Each box is a separate process in its own container. The app instances keep no data. They send each request to Redis over the Docker network. Click <b>Send GET /count</b> a few times and watch Nginx rotate between the apps while one counter in Redis goes up.</p>
+    <div class="stage">
+      <svg class="svgbox" id="stackSvg" viewBox="0 0 960 300" role="img" aria-label="Request flow from curl through Nginx to three app instances and Redis">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--line)"/></marker>
+        </defs>
+        <g stroke="var(--line)" stroke-width="2" fill="none">
+          <line x1="120" y1="150" x2="200" y2="150"/>
+          <line x1="300" y1="150" x2="400" y2="60"/><line x1="300" y1="150" x2="400" y2="150"/><line x1="300" y1="150" x2="400" y2="240"/>
+          <line x1="520" y1="60" x2="620" y2="150"/><line x1="520" y1="150" x2="620" y2="150"/><line x1="520" y1="240" x2="620" y2="150"/>
+          <line x1="740" y1="150" x2="820" y2="150" stroke-dasharray="6 6"/>
+        </g>
+        <g id="nodes"></g>
+        <g id="dots"></g>
+      </svg>
+      <div class="controls">
+        <button class="btn primary" id="sendCount" type="button">Send GET /count</button>
+        <span class="label">Response:</span> <code id="stackResp">—</code>
+      </div>
+    </div>
+    <div class="callout">Your Mac reaches only Nginx (port 8080). Inside the Docker network, each service name (<code>app1</code>, <code>redis</code>) is also a hostname. That is why your code connects to the host <code>"redis"</code>, not <code>localhost</code>. The dashed follower comes in Part 3.</div>
+  </section>
+
+  <!-- 2. REDIS -->
+  <section id="s2">
+    <div class="kicker">Section 2 · What Redis is</div>
+    <h2>A server that holds keys in memory and runs one command at a time</h2>
+    <p class="lead">Redis is a key-value store. Each key has a name and a value, and the value has a type. This project uses two types: a <b>string</b> for the counter and a <b>list</b> for the posts. Clients send commands over TCP (port 6379). Redis puts the commands in a line and runs them <b>one at a time</b>, so two commands never run at the same moment.</p>
+    <div class="grid2">
+      <div class="stage">
+        <div class="label">Commands waiting, then running (one at a time)</div>
+        <div class="queue" id="queue"><span class="empty">empty</span></div>
+        <div class="keys" style="margin-top:12px">
+          <div class="key"><span class="name">counter</span><span class="type">string</span><span class="part">Part 2</span><br><span class="strval" id="cval">(nil)</span></div>
+          <div class="key"><span class="name">posts</span><span class="type">list</span><span class="part">Part 3</span>
+            <div class="label" style="margin-top:6px">index 0 = left end = newest</div>
+            <div class="list" id="plist"><span class="empty">(empty list)</span></div></div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="label">Click a command to send it</div>
+        <div class="controls" style="margin-top:6px">
+          <button class="btn" data-cmd="INCR" type="button">INCR counter</button>
+          <button class="btn" data-cmd="GET" type="button">GET counter</button>
+          <button class="btn" data-cmd="LPUSH" type="button">LPUSH posts "…"</button>
+          <button class="btn" data-cmd="LRANGE" type="button">LRANGE posts 0 -1</button>
+          <button class="btn" data-cmd="BURST" type="button">3 apps send INCR at once</button>
+          <button class="btn" data-cmd="RESET" type="button">Reset</button>
+        </div>
+        <div class="log" id="rlog" aria-live="polite"><div class="note"># replies show here</div></div>
+      </div>
+    </div>
+    <div class="callout"><b>INCR</b> adds 1 and returns the new number. If the key does not exist, Redis starts from 0. <b>LPUSH</b> adds an item at the left end. <b>LRANGE posts 0 -1</b> returns all items from index 0 to the last one (<code>-1</code> means "the last"). So the newest post comes first. All values are stored as text: <code>GET</code> returns <code>"3"</code>, not <code>3</code>.</div>
+  </section>
+
+  <!-- 3. RACE -->
+  <section id="s3">
+    <div class="kicker">Section 3 · Why INCR and not GET + SET</div>
+    <h2>Two apps add 1 at the same time</h2>
+    <p class="lead">The counter is 5. app1 and app2 each get one request. The correct result is 7. Choose a method and click <b>Play</b>.</p>
+    <div class="stage">
+      <div class="controls" style="margin:0 0 12px">
+        <div class="seg" role="group" aria-label="Method">
+          <button type="button" data-mode="getset" aria-pressed="true">GET, then SET</button>
+          <button type="button" data-mode="incr" aria-pressed="false">INCR</button>
+        </div>
+        <button class="btn primary" id="racePlay" type="button">Play</button>
+      </div>
+      <div class="timeline" id="timeline"></div>
+      <div class="result" id="raceResult"></div>
+    </div>
+  </section>
+
+  <!-- 4. REPLICATION -->
+  <section id="s4">
+    <div class="kicker">Section 4 · Leader and follower (Part 3 preview)</div>
+    <h2>The follower copies the leader's stream of writes</h2>
+    <p class="lead">The leader runs each write, then sends the same command to the follower. Each node counts the bytes of the stream that it has processed. This number is the <b>replication offset</b>. If the offsets are equal, the follower is up to date. The leader also keeps the most recent writes in a fixed-size <b>backlog</b>. In this demo, the backlog holds 4 writes. In Redis, the default size is 1 MB.</p>
+    <div class="stage">
+      <div class="repl">
+        <div class="node leader">
+          <div class="role">leader · redis</div>
+          <h3>posts</h3>
+          <div class="list" id="lList"><span class="empty">(empty)</span></div>
+          <div class="offset">master_repl_offset: <b id="lOff">0</b></div>
+          <div class="backlog"><span class="label">repl backlog (last 4 writes)</span><div class="slots" id="slots"></div></div>
+        </div>
+        <div class="link">
+          <span class="label" id="linkLbl">link up</span>
+          <div class="wire" id="wire"></div>
+          <span class="label">lag <span id="lagVal">800</span> ms</span>
+          <input type="range" id="lag" min="0" max="3000" step="100" value="800" aria-label="Replication lag in milliseconds">
+        </div>
+        <div class="node follower">
+          <div class="role">follower · redis-replica</div>
+          <h3>posts</h3>
+          <div class="list" id="fList"><span class="empty">(empty)</span></div>
+          <div class="offset" id="fOffBox">offset: <b id="fOff">0</b></div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn primary" id="rWrite" type="button">POST a new post (write to leader)</button>
+        <button class="btn" id="rLink" type="button">REPLICAOF NO ONE (cut link)</button>
+        <button class="btn" id="readL" type="button">Read from leader</button>
+        <button class="btn" id="readF" type="button">Read from follower</button>
+        <button class="btn" id="rReset" type="button">Reset</button>
+      </div>
+      <div class="log" id="replLog" aria-live="polite"><div class="note"># cut the link, write 2 posts, read both nodes, then reconnect. Then try it with 5 or more posts.</div></div>
+    </div>
+    <div class="callout warn"><b>Replication lag:</b> the time between "the leader has the write" and "the follower has the write". In that time, a read from the follower returns old data. When the link comes back, the follower sends its offset. If the missing writes are still in the backlog, the leader sends only those (<b>partial resync</b>). If they are not, the leader sends a full snapshot (<b>full resync</b>).</div>
+  </section>
+
+  <!-- 5. IOREDIS API -->
+  <section id="s5">
+    <div class="kicker">Section 5 · The ioredis API you need</div>
+    <h2>One client object, one method for each command</h2>
+    <p class="lead"><code>ioredis</code> gives you a <code>Redis</code> class. Each instance holds one TCP connection to one Redis server. Each Redis command is a method with the same name in lowercase. Each method returns a <b>Promise</b>, so you use <code>await</code> in an <code>async</code> handler.</p>
+<pre class="code"><span class="k">import</span> Redis <span class="k">from</span> <span class="s">"ioredis"</span>;
+
+<span class="c">// Make it at module level: one connection for each process, shared by all requests.</span>
+<span class="k">const</span> leader = <span class="k">new</span> Redis({
+  host: process.env.REDIS_LEADER_HOST ?? <span class="s">"redis"</span>,
+  port: <span class="n">6379</span>,
+  enableOfflineQueue: <span class="k">false</span>,  <span class="c">// no connection? fail now, do not queue</span>
+  maxRetriesPerRequest: <span class="n">1</span>,     <span class="c">// retry a command one time only</span>
+  commandTimeout: <span class="n">1000</span>,        <span class="c">// no reply in 1 s? fail</span>
+});
+
+leader.on(<span class="s">"error"</span>, (err) =&gt; console.error(<span class="s">"redis:"</span>, err.message));</pre>
+    <div class="callout">Add the <code>"error"</code> listener. Without it, ioredis prints "Unhandled error event" again and again while Redis is down. The listener only logs. Each failed command still rejects its own Promise, so use <code>try/catch</code> in the handler and send an HTTP error (for example 503).</div>
+    <h3 style="margin:20px 0 10px">The methods for this project</h3>
+    <div class="api">
+      <div class="apirow"><code>await client.incr("counter")</code><div class="ret">Returns <b>number</b>: the new value. <span class="part">Part 2</span></div></div>
+      <div class="apirow"><code>await client.get("counter")</code><div class="ret">Returns <b>string | null</b>. <code>null</code> means the key does not exist. Optional, for checks.</div></div>
+      <div class="apirow"><code>await client.lpush("posts", text)</code><div class="ret">Returns <b>number</b>: the new length of the list. <span class="part">Part 3</span></div></div>
+      <div class="apirow"><code>await client.lrange("posts", 0, -1)</code><div class="ret">Returns <b>string[]</b>: all items, newest first. <span class="part">Part 3</span></div></div>
+      <div class="apirow"><code>client.on("error", fn)</code><div class="ret">Called on connection errors. Also useful: <code>"connect"</code>, <code>"ready"</code>, <code>"close"</code>.</div></div>
+    </div>
+    <div class="callout good"><b>Part 3:</b> you make <b>two</b> clients, one to <code>REDIS_LEADER_HOST</code> for writes and one to <code>REDIS_FOLLOWER_HOST</code> for reads. They are the same class with a different host. Your code chooses which one to use for each request.</div>
+  </section>
+
+  <!-- 6. FAIL FAST -->
+  <section id="s6">
+    <div class="kicker">Section 6 · Why the three options matter</div>
+    <h2>What <code>await client.incr()</code> does when Redis is not healthy</h2>
+    <p class="lead">With the default settings, ioredis tries to hide problems: it queues commands and retries. That is good in production, but in this project it hides the failures you want to see. Choose the state of Redis and click <b>Run</b>. The two bars compare the two settings. The animation is 15 times faster than real time.</p>
+    <div class="stage">
+      <div class="controls" style="margin:0 0 6px">
+        <span class="label">Redis is:</span>
+        <div class="seg" role="group" aria-label="Redis state">
+          <button type="button" data-state="up" aria-pressed="true">running</button>
+          <button type="button" data-state="down" aria-pressed="false">stopped</button>
+          <button type="button" data-state="hung" aria-pressed="false">connected, no reply</button>
+        </div>
+        <button class="btn primary" id="ffRun" type="button">Run</button>
+      </div>
+      <div class="ffrow"><span class="label">default settings</span><div class="bar"><div class="fill" id="fillA"></div><div class="txt" id="txtA">—</div></div></div>
+      <div class="ffrow"><span class="label">project settings</span><div class="bar"><div class="fill" id="fillB"></div><div class="txt" id="txtB">—</div></div></div>
+      <div class="scale"><span>0 s</span><span>20 s</span><span>40 s</span><span>60 s</span><span>80 s</span></div>
+      <div class="callout" id="ffNote" style="margin-top:12px">Choose a state and click Run.</div>
+    </div>
+  </section>
+
+  <!-- 7. CLI -->
+  <section id="s7">
+    <div class="kicker">Section 7 · redis-cli for the experiments</div>
+    <h2>Look inside Redis from the terminal</h2>
+    <p class="lead"><code>redis-cli</code> is the command-line client that comes with Redis. Run it inside a container with <code>docker compose exec &lt;service&gt; redis-cli &lt;command&gt;</code>. It sends the same commands as your app.</p>
+    <table>
+      <thead><tr><th>Command</th><th>What it shows or does</th><th>Part</th></tr></thead>
+      <tbody>
+        <tr><td><code>redis-cli GET counter</code></td><td>The current value of the counter.</td><td>2</td></tr>
+        <tr><td><code>redis-cli LRANGE posts 0 -1</code></td><td>All posts on this node. Compare the leader and the follower.</td><td>3</td></tr>
+        <tr><td><code>redis-cli INFO replication</code></td><td><code>role</code> (master or slave), <code>master_repl_offset</code>, <code>repl_backlog_active</code>, and the link status on the follower.</td><td>3</td></tr>
+        <tr><td><code>redis-cli REPLICAOF NO ONE</code></td><td>Stop following. The node becomes a leader and accepts writes.</td><td>3, 4</td></tr>
+        <tr><td><code>redis-cli REPLICAOF redis 6379</code></td><td>Follow the node <code>redis</code>. Redis tries a partial resync first.</td><td>3, 4</td></tr>
+        <tr><td><code>redis-cli SET x 1</code> (on the follower)</td><td>Fails with <code>READONLY</code>. A follower does not accept writes from clients.</td><td>3</td></tr>
+        <tr><td><code>redis-cli DEL counter posts</code></td><td>Delete keys, to start an experiment again.</td><td>any</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">Note: Redis output uses the old words <code>master</code> and <code>slave</code>. They mean leader and follower.</div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sleep = ms => new Promise(r => setTimeout(r, reduce ? 0 : ms));
+  const $ = s => document.querySelector(s);
+  const $$ = s => [...document.querySelectorAll(s)];
+  const NS = 'http://www.w3.org/2000/svg';
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  // Theme toggle
+  const root = document.documentElement;
+  $('#themeBtn').onclick = () => {
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+  };
+
+  // ---------- 1. Stack ----------
+  const nodes = {
+    curl:  {x:60,  y:150, label:'curl',    sub:'your Mac',      color:'var(--client)'},
+    nginx: {x:250, y:150, label:'nginx',   sub:':8080 → :80',   color:'var(--nginx)'},
+    app1:  {x:460, y:60,  label:'app1',    sub:'Bun + Express', color:'var(--app)'},
+    app2:  {x:460, y:150, label:'app2',    sub:'Bun + Express', color:'var(--app)'},
+    app3:  {x:460, y:240, label:'app3',    sub:'Bun + Express', color:'var(--app)'},
+    redis: {x:680, y:150, label:'redis',   sub:'counter = ',    color:'var(--leader)'},
+    rep:   {x:880, y:150, label:'redis-replica', sub:'Part 3',  color:'var(--follower)', dashed:true},
+  };
+  const g = $('#nodes');
+  for (const [id, n] of Object.entries(nodes)) {
+    const w = id === 'rep' ? 130 : 110, h = 58;
+    const grp = document.createElementNS(NS, 'g'); grp.id = 'n-' + id;
+    grp.innerHTML = `<rect x="${n.x - w/2}" y="${n.y - h/2}" width="${w}" height="${h}" rx="10" fill="var(--panel)" stroke="${n.color}" stroke-width="2" ${n.dashed ? 'stroke-dasharray="6 5" opacity=".6"' : ''}/>
+      <text x="${n.x}" y="${n.y - 4}" text-anchor="middle" font-weight="700" font-size="15" fill="var(--ink)">${n.label}</text>
+      <text x="${n.x}" y="${n.y + 15}" text-anchor="middle" font-size="11" fill="var(--muted)" class="sub">${n.sub}${id === 'redis' ? '0' : ''}</text>`;
+    g.appendChild(grp);
+  }
+  function anim(from, to, color, ms, label) {
+    return new Promise(res => {
+      const dot = document.createElementNS(NS, 'g');
+      dot.innerHTML = `<circle r="8" fill="${color}"/>` + (label ? `<text y="-13" text-anchor="middle" font-size="11" font-weight="700" fill="${color}">${label}</text>` : '');
+      $('#dots').appendChild(dot);
+      if (reduce) { dot.remove(); return res(); }
+      const t0 = performance.now();
+      const step = t => {
+        const p = Math.min(1, (t - t0) / ms), e = p < .5 ? 2*p*p : 1 - Math.pow(-2*p + 2, 2) / 2;
+        dot.setAttribute('transform', `translate(${from.x + (to.x - from.x) * e},${from.y + (to.y - from.y) * e})`);
+        p < 1 ? requestAnimationFrame(step) : (dot.remove(), res());
+      };
+      requestAnimationFrame(step);
+    });
+  }
+  const glow = (id, on) => $('#n-' + id + ' rect').setAttribute('stroke-width', on ? 5 : 2);
+  let rr = 0, counter = 0, busy1 = false;
+  $('#sendCount').onclick = async () => {
+    if (busy1) return; busy1 = true;
+    const app = 'app' + (rr % 3 + 1); rr++;
+    const A = nodes.curl, N = nodes.nginx, P = nodes[app], R = nodes.redis;
+    $('#stackResp').textContent = '…';
+    await anim(A, N, 'var(--client)', 450, 'GET /count');
+    glow('nginx', 1); await sleep(150); glow('nginx', 0);
+    await anim(N, P, 'var(--client)', 450, 'round-robin');
+    glow(app, 1); await sleep(150);
+    await anim(P, R, 'var(--leader)', 450, 'INCR counter');
+    glow('redis', 1); counter++;
+    $('#n-redis .sub').textContent = 'counter = ' + counter;
+    await sleep(250); glow('redis', 0);
+    await anim(R, P, 'var(--ok)', 400, String(counter));
+    glow(app, 0);
+    await anim(P, N, 'var(--ok)', 350, '');
+    await anim(N, A, 'var(--ok)', 350, '');
+    $('#stackResp').textContent = JSON.stringify({instance: app, count: counter});
+    busy1 = false;
+  };
+
+  // ---------- 2. Redis console ----------
+  const db = {counter: null, posts: []};
+  let pushN = 0;
+  const qEl = $('#queue'), logEl = $('#rlog');
+  const log = (el, cls, txt) => { const d = document.createElement('div'); d.className = cls; d.textContent = txt; el.appendChild(d); el.scrollTop = el.scrollHeight; };
+  const renderList = (el, arr, newIdx = -1, hl = false) => {
+    el.innerHTML = arr.length ? arr.map((v, i) => `<span class="item${i === newIdx ? ' new' : ''}${hl ? ' hl' : ''}"><span class="idx">${i}</span>${esc(v)}</span>`).join('') : '<span class="empty">(empty list)</span>';
+  };
+  const queue = []; let running = false;
+  function renderQueue() {
+    qEl.innerHTML = queue.length ? queue.map((q, i) => `<span class="q${i === 0 && running ? ' run' : ''}">${esc(q.who ? q.who + ': ' : '')}${esc(q.text)}</span>`).join('') : '<span class="empty">empty</span>';
+  }
+  function exec(c) {
+    switch (c.cmd) {
+      case 'INCR': { db.counter = (Number(db.counter) || 0) + 1; const v = $('#cval'); v.textContent = '"' + db.counter + '"'; v.classList.remove('flash'); void v.offsetWidth; v.classList.add('flash'); return '(integer) ' + db.counter; }
+      case 'GET': return db.counter === null ? '(nil)' : '"' + db.counter + '"';
+      case 'LPUSH': db.posts.unshift(c.arg); renderList($('#plist'), db.posts, 0); return '(integer) ' + db.posts.length;
+      case 'LRANGE': renderList($('#plist'), db.posts, -1, true); setTimeout(() => renderList($('#plist'), db.posts), 900);
+        return db.posts.length ? db.posts.map((p, i) => `${i + 1}) "${p}"`).join('\n') : '(empty array)';
+    }
+  }
+  async function pump() {
+    if (running) return; running = true;
+    while (queue.length) {
+      renderQueue(); await sleep(550);
+      const c = queue[0];
+      log(logEl, 'rep', (c.who ? c.who + ' ← ' : '') + exec(c));
+      queue.shift(); renderQueue(); await sleep(150);
+    }
+    running = false; renderQueue();
+  }
+  function send(cmd, who) {
+    let text = cmd, arg;
+    if (cmd === 'INCR') text = 'INCR counter';
+    if (cmd === 'GET') text = 'GET counter';
+    if (cmd === 'LPUSH') { arg = 'post ' + (++pushN); text = `LPUSH posts "${arg}"`; }
+    if (cmd === 'LRANGE') text = 'LRANGE posts 0 -1';
+    log(logEl, 'cmd', (who ? who + ' → ' : '> ') + text);
+    queue.push({cmd, arg, text, who}); renderQueue(); pump();
+  }
+  $$('[data-cmd]').forEach(b => b.onclick = () => {
+    const c = b.dataset.cmd;
+    if (c === 'RESET') { queue.length = 0; db.counter = null; db.posts = []; pushN = 0; $('#cval').textContent = '(nil)'; renderList($('#plist'), []); logEl.innerHTML = '<div class="note"># reset</div>'; renderQueue(); return; }
+    if (c === 'BURST') { log(logEl, 'note', '# three requests arrive at the same moment'); ['app1', 'app2', 'app3'].forEach(a => send('INCR', a)); return; }
+    send(c);
+  });
+
+  // ---------- 3. Race ----------
+  let mode = 'getset';
+  const scripts = {
+    getset: [
+      ['t1', 'GET counter → "5"', '', '5'],
+      ['t2', '', 'GET counter → "5"', '5'],
+      ['t3', 'computes 5 + 1 = 6', 'computes 5 + 1 = 6', '5'],
+      ['t4', 'SET counter 6', '', '6'],
+      ['t5', '', 'SET counter 6', '6'],
+    ],
+    incr: [
+      ['t1', 'INCR counter → 6', '', '6'],
+      ['t2', '', 'INCR counter → 7', '7'],
+    ],
+  };
+  function drawTimeline() {
+    const rows = scripts[mode];
+    $('#timeline').innerHTML = '<div class="h">time</div><div class="h">app1</div><div class="h">app2</div><div class="h">counter in Redis</div>' +
+      rows.map((r, i) => `<div class="t" data-r="${i}">${r[0]}</div>` + [1, 2, 3].map(k => `<div class="cell${r[k] ? '' : ' blank'}" data-r="${i}">${esc(r[k])}</div>`).join('')).join('');
+    const res = $('#raceResult'); res.className = 'result'; res.textContent = '';
+  }
+  $$('[data-mode]').forEach(b => b.onclick = () => { mode = b.dataset.mode; $$('[data-mode]').forEach(x => x.setAttribute('aria-pressed', x === b)); drawTimeline(); });
+  $('#racePlay').onclick = async () => {
+    drawTimeline(); $('#racePlay').disabled = true;
+    const rows = scripts[mode];
+    for (let i = 0; i < rows.length; i++) { await sleep(700); $$(`[data-r="${i}"]`).forEach(e => e.classList.add('shown')); }
+    await sleep(400);
+    const res = $('#raceResult');
+    if (mode === 'getset') { res.className = 'result show callout bad'; res.innerHTML = 'Result: 6, but it must be 7. One increase is lost. This is a <b>lost update</b>: each app read the old value before the other app wrote. The read and the write were two separate commands, and the other app\'s command ran between them.'; }
+    else { res.className = 'result show callout good'; res.innerHTML = 'Result: 7. Correct. <b>INCR</b> reads, adds and writes inside one command. Redis runs one command at a time, so no other command can run between the read and the write. The operation is <b>atomic</b>.'; }
+    $('#racePlay').disabled = false;
+  };
+  drawTimeline();
+
+  // ---------- 4. Replication ----------
+  const BACKLOG = 4;
+  const R = {writes: [], lOff: 0, fApplied: 0, fList: [], link: true, n: 0, inflight: 0};
+  const rlog = $('#replLog');
+  const lagMs = () => +$('#lag').value;
+  $('#lag').oninput = () => $('#lagVal').textContent = $('#lag').value;
+  const fOffset = () => R.fApplied ? R.writes[R.fApplied - 1].off : 0;
+  function renderRepl(newL = false, newF = false) {
+    const lList = R.writes.map(w => w.text).reverse();
+    renderList($('#lList'), lList, newL ? 0 : -1);
+    renderList($('#fList'), R.fList, newF ? 0 : -1);
+    $('#lOff').textContent = R.lOff;
+    $('#fOff').textContent = fOffset();
+    $('#fOffBox').classList.toggle('behind', fOffset() < R.lOff);
+    const start = Math.max(0, R.writes.length - BACKLOG);
+    let html = '';
+    for (let i = 0; i < BACKLOG; i++) {
+      const w = R.writes[start + i];
+      html += w ? `<div class="slot f${(start + i) >= R.fApplied && !R.link ? ' miss' : ''}" title="offset ${w.off}">${esc(w.text)}</div>` : '<div class="slot"></div>';
+    }
+    $('#slots').innerHTML = html;
+    $('#wire').classList.toggle('down', !R.link);
+    $('#linkLbl').textContent = R.link ? 'link up' : 'link cut';
+    $('#rLink').textContent = R.link ? 'REPLICAOF NO ONE (cut link)' : 'REPLICAOF redis 6379 (reconnect)';
+  }
+  function packet(text, cls = '') {
+    return new Promise(res => {
+      const p = document.createElement('div'); p.className = 'pkt ' + cls; p.textContent = text;
+      $('#wire').appendChild(p);
+      const ms = Math.max(250, lagMs());
+      if (reduce) { p.remove(); return res(); }
+      p.animate([{left: '0%', transform: 'translateX(0)'}, {left: '100%', transform: 'translateX(-100%)'}], {duration: ms, easing: 'linear'}).onfinish = () => { p.remove(); res(); };
+    });
+  }
+  async function ship(idx) {
+    R.inflight++;
+    await packet('LPUSH');
+    R.inflight--;
+    if (!R.link || idx !== R.fApplied) return; // dropped (link was cut) or out of order
+    R.fList.unshift(R.writes[idx].text); R.fApplied = idx + 1; renderRepl(false, true);
+  }
+  $('#rWrite').onclick = () => {
+    const text = 'post ' + (++R.n);
+    const bytes = 30 + text.length; // the command as it travels on the stream
+    R.lOff += bytes; R.writes.push({text, off: R.lOff});
+    log(rlog, 'cmd', `leader ← LPUSH posts "${text}"   (leader offset ${R.lOff})`);
+    renderRepl(true);
+    if (R.link) ship(R.writes.length - 1);
+    else log(rlog, 'note', '  link is cut: the follower does not get this write');
+  };
+  $('#rLink').onclick = async () => {
+    if (R.link) {
+      R.link = false; renderRepl();
+      log(rlog, 'err', 'follower: REPLICAOF NO ONE → the follower stops copying');
+      return;
+    }
+    R.link = true;
+    const fo = fOffset();
+    log(rlog, 'cmd', `follower: REPLICAOF redis 6379 → "PSYNC, my offset is ${fo}"`);
+    const missing = R.writes.length - R.fApplied;
+    const oldest = Math.max(0, R.writes.length - BACKLOG);
+    $('#rLink').disabled = true;
+    if (missing === 0) { log(rlog, 'rep', 'leader: nothing is missing. "+CONTINUE"'); renderRepl(); }
+    else if (R.fApplied >= oldest) {
+      log(rlog, 'rep', `leader: offset ${fo} is in my backlog. "+CONTINUE" → partial resync, send ${missing} write(s)`);
+      renderRepl();
+      for (let i = R.fApplied; i < R.writes.length; i++) await ship(i);
+    } else {
+      log(rlog, 'err', `leader: offset ${fo} is no longer in my backlog (it holds only the last ${BACKLOG}). "+FULLRESYNC" → send a full snapshot`);
+      renderRepl();
+      await packet('RDB snapshot', 'snap');
+      R.fList = R.writes.map(w => w.text).reverse(); R.fApplied = R.writes.length; renderRepl(false, true);
+      log(rlog, 'rep', 'follower: dropped its old data and loaded the snapshot');
+    }
+    $('#rLink').disabled = false;
+  };
+  const read = who => {
+    const arr = who === 'leader' ? R.writes.map(w => w.text).reverse() : R.fList;
+    const stale = who === 'follower' && arr.length < R.writes.length;
+    log(rlog, stale ? 'err' : 'rep', `read ${who}: LRANGE → ${arr.length} post(s)${stale ? `   STALE: the leader has ${R.writes.length}` : ''}`);
+  };
+  $('#readL').onclick = () => read('leader');
+  $('#readF').onclick = () => read('follower');
+  $('#rReset').onclick = () => { Object.assign(R, {writes: [], lOff: 0, fApplied: 0, fList: [], link: true, n: 0}); rlog.innerHTML = '<div class="note"># reset</div>'; renderRepl(); };
+  renderRepl();
+
+  // ---------- 6. Fail fast ----------
+  let state = 'up';
+  $$('[data-state]').forEach(b => b.onclick = () => { state = b.dataset.state; $$('[data-state]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  const MAX = 80000, SPEED = 15;
+  // [time ms, result text, kind]
+  const outcomes = {
+    up:   {A: [2, 'resolved: 1 (about 1 ms)', 'ok'], B: [2, 'resolved: 1 (about 1 ms)', 'ok'],
+           note: ['good', 'Redis is healthy, so both settings give the same result. The settings change only what happens on failure.']},
+    down: {A: [71500, 'MaxRetriesPerRequestError after about 70 s', 'err'], B: [5, 'error at once: "Stream isn\'t writeable and enableOfflineQueue options is false"', 'err'],
+           note: ['warn', '<b>Stopped</b> (for example <code>docker compose stop redis</code>). Default: the command waits in the offline queue while ioredis reconnects. The wait between attempts doubles (50 ms, 100 ms, 200 ms, … up to 5 s). After 20 failed attempts, ioredis rejects all queued commands. Your curl can hang for more than a minute. Project settings: there is no connection, so the command fails at once and your app can return 503.']},
+    hung: {A: [MAX, 'still waiting… (no time limit)', 'run'], B: [1000, 'error after 1 s: "Command timed out"', 'err'],
+           note: ['bad', '<b>Connected, no reply</b> (for example <code>docker compose pause redis</code>, or a slow network). The TCP connection is open, so nothing looks wrong. Default: no time limit, so the request waits for ever. Project settings: <code>commandTimeout: 1000</code> rejects after 1 second.']},
+  };
+  function runBar(fill, txt, [ms, text, kind]) {
+    return new Promise(res => {
+      fill.className = 'fill'; fill.style.width = '0'; txt.textContent = 'waiting…';
+      const total = ms / SPEED, t0 = performance.now();
+      const step = t => {
+        const el = reduce ? total : t - t0, real = Math.min(ms, el * SPEED);
+        fill.style.width = Math.max(1, real / MAX * 100) + '%';
+        txt.textContent = (real / 1000).toFixed(1) + ' s · waiting…';
+        if (el < total) requestAnimationFrame(step);
+        else { fill.classList.add(kind === 'run' ? 'x' : kind); txt.textContent = text; res(); }
+      };
+      requestAnimationFrame(step);
+    });
+  }
+  $('#ffRun').onclick = async () => {
+    const o = outcomes[state]; $('#ffRun').disabled = true;
+    const note = $('#ffNote'); note.className = 'callout'; note.textContent = 'Running…';
+    await Promise.all([runBar($('#fillA'), $('#txtA'), o.A), runBar($('#fillB'), $('#txtB'), o.B)]);
+    note.className = 'callout ' + o.note[0]; note.innerHTML = o.note[1];
+    $('#ffRun').disabled = false;
+  };
+})();
+</script>
+</body>
+</html>

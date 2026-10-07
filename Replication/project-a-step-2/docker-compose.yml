@@ -1,0 +1,35 @@
+services:
+  app1:
+    build: ./app
+    hostname: app1
+    environment:
+      PORT: 3000
+      REDIS_LEADER_HOST: redis
+
+  app2:
+    build: ./app
+    hostname: app2
+    environment:
+      PORT: 3000
+      REDIS_LEADER_HOST: redis
+
+  app3:
+    build: ./app
+    hostname: app3
+    environment:
+      PORT: 3000
+      REDIS_LEADER_HOST: redis
+
+  redis:
+    image: redis:7
+
+  nginx:
+    image: nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app1
+      - app2
+      - app3

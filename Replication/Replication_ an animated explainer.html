@@ -1,0 +1,941 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Replication: an animated explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --sans:"Archivo",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --bg:#e9edf2; --panel:#f8fafc; --panel2:#eef2f6; --ink:#14213d; --muted:#56617a; --line:#c9d2de;
+  --leader:#2f5bea; --follower:#0f8b7d; --replica:#0b7fa8; --client:#7a4fd1;
+  --write:#14213d; --ok:#0f8b7d; --read:#7a4fd1; --err:#d64045; --hb:#d9488f;
+  --stale:#d39a00; --down:#d64045; --downbg:#fbe9ea; --conflict:#c2255c; --conflictbg:#fbe7ef;
+  --chip:#e3e9f1; --snap:#cfdafc; --risk:#ffe39a;
+  --goodbg:#d9f2ee; --badbg:#fbe1e3; --warnbg:#fff1c7;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e141e; --panel:#151d2a; --panel2:#111823; --ink:#e4e9f1; --muted:#97a3b8; --line:#2a3546;
+    --leader:#6f93ff; --follower:#35c2ad; --replica:#3fb6e0; --client:#a988ff;
+    --write:#dfe6f2; --ok:#2aa894; --read:#8f6cf0; --err:#ef5f64; --hb:#ec6aa9;
+    --stale:#f0b62a; --down:#ef5f64; --downbg:#33191d; --conflict:#f0619b; --conflictbg:#33182a;
+    --chip:#223045; --snap:#2a3d73; --risk:#6b5310;
+    --goodbg:#123630; --badbg:#3a1a1e; --warnbg:#3a3010;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e141e; --panel:#151d2a; --panel2:#111823; --ink:#e4e9f1; --muted:#97a3b8; --line:#2a3546;
+  --leader:#6f93ff; --follower:#35c2ad; --replica:#3fb6e0; --client:#a988ff;
+  --write:#dfe6f2; --ok:#2aa894; --read:#8f6cf0; --err:#ef5f64; --hb:#ec6aa9;
+  --stale:#f0b62a; --down:#ef5f64; --downbg:#33191d; --conflict:#f0619b; --conflictbg:#33182a;
+  --chip:#223045; --snap:#2a3d73; --risk:#6b5310;
+  --goodbg:#123630; --badbg:#3a1a1e; --warnbg:#3a3010;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--leader);outline-offset:2px}
+
+.top{max-width:1240px;margin:0 auto;padding:32px 24px 10px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.top h1{margin:0;font-size:clamp(2.2rem,5vw,3.6rem);line-height:1;font-weight:800;letter-spacing:-.03em}
+.top p{margin:10px 0 0;color:var(--muted);max-width:62ch}
+.theme{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:14px;white-space:nowrap}
+
+.layout{max-width:1240px;margin:0 auto;padding:14px 24px 56px;display:grid;grid-template-columns:230px minmax(0,1fr);gap:28px}
+.nav{position:sticky;top:16px;align-self:start;display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;gap:10px;align-items:baseline;text-align:left;border:0;background:none;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--muted);font-size:15px}
+.nav button .n{font:600 12px var(--mono);min-width:20px}
+.nav button:hover{background:var(--panel2);color:var(--ink)}
+.nav button[aria-current="true"]{background:var(--ink);color:var(--bg)}
+@media (max-width:880px){
+  .layout{grid-template-columns:1fr;gap:14px}
+  .nav{position:static;flex-direction:row;overflow-x:auto;padding-bottom:6px}
+  .nav button{white-space:nowrap;flex:none;border:1px solid var(--line);background:var(--panel)}
+}
+
+main{min-width:0}
+.shead{display:flex;align-items:baseline;gap:14px;margin:0 0 6px}
+.shead .num{font:600 14px var(--mono);color:var(--muted)}
+.shead h2{margin:0;font-size:clamp(1.5rem,3vw,2.1rem);line-height:1.15;letter-spacing:-.02em}
+.intro{max-width:74ch;margin-bottom:18px}
+.intro p{margin:.5em 0}
+
+.stagecard{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.modes{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px 0}
+.modes:empty{display:none}
+.modes button{border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:5px 14px;cursor:pointer;font-size:14px}
+.modes button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.stagewrap{overflow-x:auto}
+.stageinner{min-width:640px}
+#stage{display:block;width:100%;height:auto}
+.status{height:44px;display:flex;align-items:center;justify-content:center;padding:0 12px}
+.pill{font-weight:600;font-size:14px;padding:6px 16px;border-radius:999px;opacity:0;transform:translateY(4px);transition:opacity .25s,transform .25s;text-align:center}
+.pill.show{opacity:1;transform:none}
+.pill.good{background:var(--goodbg);color:var(--ok)}
+.pill.bad{background:var(--badbg);color:var(--err)}
+.pill.warn{background:var(--warnbg);color:var(--stale)}
+.caption{min-height:74px;padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:14px;align-items:flex-start;font-size:17px;line-height:1.5}
+.caption .sn{flex:none;font:600 13px var(--mono);background:var(--ink);color:var(--bg);border-radius:6px;padding:3px 8px;margin-top:2px}
+.caption.in .st{animation:capin .35s ease-out}
+@keyframes capin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);background:var(--panel2)}
+.controls button{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px}
+.controls .primary{background:var(--ink);color:var(--bg);border-color:var(--ink);min-width:96px}
+.speed{display:flex;gap:4px;align-items:center;margin-left:auto;font-size:13px;color:var(--muted)}
+.speed button{padding:4px 9px}
+.speed button[aria-pressed="true"]{border-color:var(--ink);font-weight:700;color:var(--ink)}
+.stepc{font:600 13px var(--mono);color:var(--muted)}
+.static .caption,.static .controls,.static .status{display:none}
+
+.grid2{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;margin-top:16px}
+@media (max-width:980px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.card h3{margin:0 0 8px;font-size:17px}
+.card ul{margin:0;padding-left:20px}
+.card li{margin:6px 0}
+.card dl{margin:0}
+.card dt{font-weight:700;margin-top:8px}
+.card dd{margin:0;color:var(--muted)}
+.card p{margin:.4em 0}
+.topo{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.topo figure{margin:0;text-align:center;font-size:13px;color:var(--muted)}
+.topo svg{width:100%;max-width:110px;height:auto;color:var(--ink)}
+.topo b{display:block;color:var(--ink)}
+
+.transcript{margin-top:16px}
+.transcript summary{cursor:pointer;color:var(--muted);font-size:15px}
+.transcript ol{margin:8px 0 0;padding-left:24px;max-width:78ch}
+.transcript li{margin:4px 0}
+#custom:empty{display:none}
+#custom{margin-top:16px}
+
+.pager{display:flex;justify-content:space-between;gap:12px;margin-top:24px}
+.pager button{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:15px;max-width:48%}
+.pager button:disabled{opacity:.4;cursor:default}
+
+/* quorum panel */
+.qgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:640px){.qgrid{grid-template-columns:1fr}}
+.qgrid label{display:flex;justify-content:space-between;font-weight:600}
+.qgrid input{width:100%;accent-color:var(--leader)}
+.qbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.qbtns button{border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px}
+.qbtns .primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.qres{margin-top:14px;padding:12px 14px;border-radius:10px}
+.qres.good{background:var(--goodbg)} .qres.bad{background:var(--badbg)}
+.qres p{margin:.3em 0}
+
+/* summary */
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:15px}
+th,td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+thead th{border-bottom:2px solid var(--ink)}
+tbody th{color:var(--muted);font-weight:600;width:22%}
+.qa details{border-bottom:1px solid var(--line);padding:10px 0}
+.qa summary{cursor:pointer;font-weight:600}
+.qa details p{margin:8px 0 0;color:var(--muted)}
+.next{border-left:4px solid var(--leader)}
+
+/* svg */
+.zone rect{fill:var(--panel2);stroke:var(--line);stroke-dasharray:6 6}
+.zone text{font:600 13px var(--sans);fill:var(--muted)}
+.link{stroke:var(--line);stroke-width:1.5}
+.route{stroke:var(--muted);stroke-width:1.2;stroke-dasharray:3 5;opacity:.6}
+.node .box{fill:var(--panel);stroke:var(--line);stroke-width:2;transition:fill .3s,stroke .3s}
+.r-leader .box{stroke:var(--leader);stroke-width:2.5}
+.r-follower .box{stroke:var(--follower)}
+.r-replica .box{stroke:var(--replica)}
+.r-new .box{stroke:var(--muted);stroke-dasharray:6 4}
+.badge rect{fill:var(--muted)}
+.r-leader .badge rect{fill:var(--leader)}
+.r-follower .badge rect{fill:var(--follower)}
+.r-replica .badge rect{fill:var(--replica)}
+.badge text{font:700 10.5px var(--sans);fill:#fff}
+.nname{font:600 13.5px var(--sans);fill:var(--ink)}
+.nval{font:600 12px var(--mono);fill:var(--ink)}
+.cval{font:600 11.5px var(--mono);fill:var(--muted)}
+.cli .cbody{fill:var(--panel);stroke:var(--client);stroke-width:2.5}
+.cli .cicon{fill:var(--client)}
+.flash{animation:flash .9s ease-out}
+@keyframes flash{0%{fill:var(--leader)}100%{fill:var(--ink)}}
+.xmark{display:none}
+.xmark line{stroke:var(--down);stroke-width:5;stroke-linecap:round}
+.down .xmark{display:block}
+.down .box{fill:var(--downbg);stroke:var(--down)}
+.down .nval,.down .nname{opacity:.45}
+.stale .box{stroke:var(--stale);stroke-width:3;stroke-dasharray:7 4}
+.hl .box{stroke:var(--leader);stroke-width:4}
+.conflict .box{fill:var(--conflictbg);stroke:var(--conflict);stroke-width:3}
+.conflict .nval{fill:var(--conflict)}
+.cut .box{stroke:var(--down);stroke-dasharray:3 4;stroke-width:3}
+.lent rect{fill:var(--chip);stroke:var(--line)}
+.lent text{font:600 9.5px var(--mono);fill:var(--ink)}
+.lent.new rect{fill:var(--goodbg);stroke:var(--ok)}
+.lent.snap rect{fill:var(--snap);stroke:var(--leader)}
+.lent.risk rect{fill:var(--risk);stroke:var(--stale)}
+.lent.lost rect{fill:var(--down);stroke:var(--down)}
+.lent.lost text{fill:#fff}
+.pop rect,.pop text{transform-box:fill-box;transform-origin:center;animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+.appear{animation:appear .7s ease-out}
+@keyframes appear{from{opacity:0}to{opacity:1}}
+.pkt rect{fill:var(--write)}
+.pkt text{font:600 11px var(--mono);fill:var(--bg)}
+.pkt.ok rect{fill:var(--ok)} .pkt.ok text{fill:#fff}
+.pkt.read rect{fill:var(--read)} .pkt.read text{fill:#fff}
+.pkt.err rect{fill:var(--err)} .pkt.err text{fill:#fff}
+.pkt.big rect{fill:var(--leader)} .pkt.big text{fill:#fff}
+.pkt.hb rect{fill:var(--hb)} .pkt.hb text{fill:#fff}
+.pkt.dropped{opacity:.45}
+.dropx line{stroke:var(--down);stroke-width:4;stroke-linecap:round}
+.timer .tbg{fill:none;stroke:var(--line);stroke-width:4}
+.timer .tfg{fill:none;stroke:var(--down);stroke-width:4}
+.qbody{fill:var(--panel);stroke:var(--line);stroke-width:2}
+.qn.w .qbody{fill:var(--leader);stroke:var(--leader)}
+.qn.w .qname,.qn.w .qval{fill:#fff}
+.rring{fill:none;stroke:var(--client);stroke-width:5}
+.qname{font:700 14px var(--sans);fill:var(--ink);text-anchor:middle}
+.qval{font:600 13px var(--mono);fill:var(--muted);text-anchor:middle}
+.qhit{font:700 13px var(--sans);fill:var(--ok);text-anchor:middle}
+.qsum{font:600 16px var(--mono);fill:var(--ink)}
+.qleg{font:500 13px var(--sans);fill:var(--muted)}
+@media (prefers-reduced-motion: reduce){
+  .pop rect,.pop text,.appear,.flash,.caption.in .st{animation:none}
+  .pill{transition:none}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Replication</h1>
+    <p>How a database keeps copies of the same data on many nodes, and what goes wrong. Phase 1, topic 1. The text uses ASD-STE100 Simplified Technical English.</p>
+  </div>
+  <button class="theme" id="themeBtn" aria-label="Change color theme">Theme: auto</button>
+</header>
+
+<div class="layout">
+  <nav class="nav" id="nav" aria-label="Topics"></nav>
+  <main id="main">
+    <div class="shead"><span class="num" id="sNum"></span><h2 id="sTitle"></h2></div>
+    <div class="intro" id="intro"></div>
+
+    <section class="stagecard" id="stageCard">
+      <div class="modes" id="modes" role="group" aria-label="Scenario"></div>
+      <div class="stagewrap"><div class="stageinner">
+        <svg id="stage" viewBox="0 0 800 420" role="img" aria-label="Animated diagram"></svg>
+      </div></div>
+      <div class="status"><div class="pill" id="pill" aria-live="polite"></div></div>
+      <div class="caption" id="caption" aria-live="polite"></div>
+      <div class="controls">
+        <button class="primary" id="playBtn">Pause</button>
+        <button id="replayBtn">Replay</button>
+        <span class="stepc" id="stepCount"></span>
+        <div class="speed" role="group" aria-label="Speed">Speed
+          <button data-s="0.5">0.5×</button><button data-s="1" aria-pressed="true">1×</button><button data-s="1.5">1.5×</button><button data-s="2">2×</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="custom"></div>
+
+    <div class="grid2" id="cards">
+      <section class="card"><h3>Key points</h3><ul id="points"></ul></section>
+      <section class="card" id="side"></section>
+    </div>
+
+    <details class="transcript" id="trWrap"><summary>All steps of this animation as text</summary><ol id="transcript"></ol></details>
+
+    <div class="pager"><button id="prev">Previous topic</button><button id="next">Next topic</button></div>
+  </main>
+</div>
+
+<script>
+"use strict";
+const NS="http://www.w3.org/2000/svg";
+const $=s=>document.querySelector(s);
+const svg=$("#stage");
+const CANCEL=Symbol("cancel");
+let token=0,speed=1,paused=false,ended=false,cur=0,mode=null,nodes={},stepNo=0;
+const L={};
+
+/* ---------- drawing helpers ---------- */
+function el(tag,a,p){const e=document.createElementNS(NS,tag);if(a)for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+function txt(tag,a,p,s){const e=el(tag,a,p);e.textContent=s;return e;}
+function layers(){svg.innerHTML="";nodes={};["z","l","n","p"].forEach(k=>L[k]=el("g",{},svg));}
+function reset(){layers();pill("");$("#caption").innerHTML="";$("#transcript").innerHTML="";stepNo=0;$("#stepCount").textContent="";}
+
+function tween(ms,fn){
+  const t=token;
+  return new Promise((res,rej)=>{
+    let acc=0,last=performance.now();
+    const f=now=>{
+      if(t!==token){rej(CANCEL);return;}
+      if(!paused)acc+=(now-last)*speed;
+      last=now;
+      const p=Math.min(1,acc/Math.max(1,ms));
+      if(fn)fn(p);
+      if(p>=1)res();else requestAnimationFrame(f);
+    };
+    requestAnimationFrame(f);
+  });
+}
+const sleep=ms=>tween(ms);
+const ease=p=>p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+
+function server(id,x,y,name,o){
+  o=o||{};
+  const g=el("g",{class:"node srv"+(o.appear?" appear":""),transform:`translate(${x},${y})`},L.n);
+  el("rect",{x:-62,y:-36,width:124,height:72,rx:12,class:"box"},g);
+  txt("text",{y:-8,class:"nname","text-anchor":"middle"},g,name);
+  const val=txt("text",{y:16,class:"nval","text-anchor":"middle"},g,o.value||"");
+  const bg=el("g",{class:"badge",transform:"translate(0,-36)"},g);
+  const br=el("rect",{y:-10,height:20,rx:10},bg);
+  const bt=txt("text",{y:4,"text-anchor":"middle"},bg,"");
+  const xg=el("g",{class:"xmark"},g);
+  el("line",{x1:-18,y1:-18,x2:18,y2:18},xg);el("line",{x1:18,y1:-18,x2:-18,y2:18},xg);
+  const lg=el("g",{transform:"translate(-62,44)"},g);
+  nodes[id]={id,x,y,hw:62,hh:36,g,val,br,bt,lg,log:[],kind:"srv"};
+  setRole(id,o.role||"");
+  (o.log||[]).forEach(e=>logAdd(id,e,{anim:false}));
+  return nodes[id];
+}
+function client(id,x,y,name,o){
+  o=o||{};
+  const g=el("g",{class:"node cli"+(o.appear?" appear":""),transform:`translate(${x},${y})`},L.n);
+  el("circle",{r:24,class:"cbody"},g);
+  el("circle",{cy:-6,r:7,class:"cicon"},g);
+  el("path",{d:"M-12 14 a12 11 0 0 1 24 0 Z",class:"cicon"},g);
+  txt("text",{y:42,class:"nname","text-anchor":"middle"},g,name);
+  const val=txt("text",{y:58,class:"cval","text-anchor":"middle"},g,"");
+  nodes[id]={id,x,y,r:24,g,val,kind:"cli"};
+  return nodes[id];
+}
+function setRole(id,r){
+  const n=nodes[id];if(n.kind!=="srv")return;
+  n.g.classList.remove("r-leader","r-follower","r-new","r-replica");
+  const m=(r||"").toLowerCase().match(/^(leader|follower|new|replica)/);
+  if(m)n.g.classList.add("r-"+m[1]);
+  if(!r){n.br.style.display="none";n.bt.textContent="";return;}
+  n.br.style.display="";
+  const s=r.charAt(0).toUpperCase()+r.slice(1);
+  n.bt.textContent=s;
+  const w=s.length*6.3+20;
+  n.br.setAttribute("x",-w/2);n.br.setAttribute("width",w);
+}
+function setVal(id,s){
+  const n=nodes[id];n.val.textContent=s;
+  n.val.classList.remove("flash");void n.g.getBoundingClientRect();n.val.classList.add("flash");
+}
+function flag(id,c,on){nodes[id].g.classList.toggle(c,on!==false);}
+function down(id,on){flag(id,"down",on);}
+function logAdd(id,label,o){
+  o=o||{};const n=nodes[id];const i=n.log.length;
+  const g=el("g",{class:"lent "+(o.cls||"")+(o.anim===false?"":" pop"),transform:`translate(${i*18},0)`},n.lg);
+  el("rect",{width:16,height:16,rx:3},g);
+  txt("text",{x:8,y:12,"text-anchor":"middle"},g,String(label));
+  n.log.push(g);return g;
+}
+function logMark(id,idx,cls){const e=nodes[id].log[idx];if(e)e.setAttribute("class","lent "+cls);}
+function zone(x,y,w,h,label){const g=el("g",{class:"zone"},L.z);el("rect",{x,y,width:w,height:h,rx:16},g);txt("text",{x:x+14,y:y+22},g,label);}
+function edge(n,tx,ty){
+  const dx=tx-n.x,dy=ty-n.y;
+  if(n.kind==="cli"){const d=Math.hypot(dx,dy)||1;return[n.x+dx/d*(n.r+6),n.y+dy/d*(n.r+6)];}
+  const s=Math.min((n.hw+6)/Math.abs(dx||1e-6),(n.hh+6)/Math.abs(dy||1e-6));
+  return[n.x+dx*s,n.y+dy*s];
+}
+function link(a,b){const A=nodes[a],B=nodes[b];const[x1,y1]=edge(A,B.x,B.y),[x2,y2]=edge(B,A.x,A.y);el("line",{x1,y1,x2,y2,class:"link"},L.z);}
+async function packet(a,b,label,o){
+  o=o||{};
+  const A=nodes[a],B=nodes[b];
+  let[x1,y1]=edge(A,B.x,B.y),[x2,y2]=edge(B,A.x,A.y);
+  if(o.off){const dx=x2-x1,dy=y2-y1,d=Math.hypot(dx,dy)||1,px=-dy/d*o.off,py=dx/d*o.off;x1+=px;y1+=py;x2+=px;y2+=py;}
+  const path=el("line",{x1,y1,x2,y2,class:"route"},L.l);
+  const g=el("g",{class:"pkt "+(o.cls||""),transform:`translate(${x1},${y1})`},L.p);
+  const w=Math.max(34,label.length*6.9+20);
+  el("rect",{x:-w/2,y:-11,width:w,height:22,rx:11},g);
+  txt("text",{y:4,"text-anchor":"middle"},g,label);
+  const stop=o.lose?0.55:1;
+  await tween((o.dur||1100)*stop,p=>{const q=ease(p)*stop;g.setAttribute("transform",`translate(${x1+(x2-x1)*q},${y1+(y2-y1)*q})`);});
+  if(o.lose){
+    g.classList.add("dropped");
+    const xx=el("g",{class:"dropx",transform:"translate(0,-24)"},g);
+    el("line",{x1:-7,y1:-7,x2:7,y2:7},xx);el("line",{x1:7,y1:-7,x2:-7,y2:7},xx);
+    await sleep(800);
+  }
+  g.remove();path.remove();
+}
+async function timer(id,ms){
+  const n=nodes[id];
+  const g=el("g",{class:"timer",transform:`translate(${n.x+n.hw+18},${n.y-n.hh+6})`},L.p);
+  el("circle",{r:11,class:"tbg"},g);
+  const c=el("circle",{r:11,class:"tfg",transform:"rotate(-90)"},g);
+  const C=2*Math.PI*11;c.setAttribute("stroke-dasharray",C);c.setAttribute("stroke-dashoffset",0);
+  await tween(ms,p=>c.setAttribute("stroke-dashoffset",C*p));
+  g.remove();
+}
+function pill(s,k){const b=$("#pill");if(!s){b.className="pill";return;}b.textContent=s;b.className="pill show "+(k||"bad");}
+function say(s){
+  stepNo++;
+  const c=$("#caption");
+  c.innerHTML="";
+  const a=document.createElement("span");a.className="sn";a.textContent=stepNo;
+  const b=document.createElement("span");b.className="st";b.textContent=s;
+  c.append(a,b);c.classList.remove("in");void c.offsetWidth;c.classList.add("in");
+  const li=document.createElement("li");li.textContent=s;$("#transcript").appendChild(li);
+  $("#stepCount").textContent="Step "+stepNo;
+}
+async function tell(s,ms){say(s);await sleep(ms!=null?ms:900+s.split(/\s+/).length*170);}
+
+/* ---------- scenes ---------- */
+const S=[];
+
+S.push({nav:"Why replication",title:"Why do we replicate data?",
+intro:["Replication keeps a copy of the same data on more than one node. A node is one computer or one database process. Each copy of the data is a replica.",
+"Replication is easy when the data does not change. The difficult part is to send each change to all replicas. This topic explains three methods: single-leader, multi-leader and leaderless replication."],
+points:["<b>Availability:</b> if one node stops, the other replicas continue to serve the data.","<b>Low latency:</b> put a replica near the users. Then requests travel a shorter distance.","<b>Read throughput:</b> more replicas can serve more read requests at the same time.","<b>Limit of this topic:</b> each node can store all the data. The next topic (partitioning) removes this limit."],
+side:`<h3>Terms</h3><dl><dt>Node</dt><dd>One computer or one database process in the system.</dd><dt>Replica</dt><dd>A node that keeps a copy of the data.</dd><dt>Leader</dt><dd>The replica that accepts writes.</dd><dt>Follower</dt><dd>A replica that copies the changes from the leader.</dd></dl>`,
+build(){client("c",110,210,"Client");server("n1",400,210,"Node 1",{value:"x = 5"});link("c","n1");},
+async play(){
+  await tell("A client sends a read request. The only node has the data.",400);
+  await packet("c","n1","GET x",{cls:"read"});await packet("n1","c","x = 5",{cls:"ok"});setVal("c","got x = 5");await sleep(800);
+  await tell("The node stops. For example, a disk fails or the power goes off.",400);down("n1");await sleep(2000);
+  setVal("c","");await tell("The client sends the request again. No node replies. The data is not available.",300);
+  await packet("c","n1","GET x",{cls:"read",lose:true});setVal("c","timeout");pill("Data not available: one node, one copy","bad");await sleep(2200);pill("");
+  await tell("Now the system keeps two more copies of x, on Node 2 and Node 3. Each copy is a replica.",300);
+  server("n2",650,100,"Node 2",{value:"x = 5",appear:1});server("n3",650,320,"Node 3",{value:"x = 5",appear:1});link("c","n2");link("c","n3");await sleep(2600);
+  setVal("c","");await tell("Node 1 is still stopped. The client sends the request to Node 2.",300);
+  await packet("c","n2","GET x",{cls:"read"});await packet("n2","c","x = 5",{cls:"ok"});setVal("c","got x = 5");pill("Available: 2 of 3 replicas operate","good");await sleep(2400);
+  await tell("This is easy only if x never changes. The next topics show what occurs when x changes.");
+}});
+
+S.push({nav:"Leader and followers",title:"Leader and followers",
+intro:["Single-leader replication is the most common method. One replica is the leader. The other replicas are followers.",
+"Clients send all writes to the leader. The leader writes each change to its local storage and to its replication log. Then it sends the log entries to all followers. Each follower applies the entries in the same order."],
+points:["Only the leader accepts writes.","Clients can read from the leader or from any follower.","Each follower applies the log entries in the same order as the leader. Thus all replicas get the same data.","Each log entry has a position number. The position shows how far a follower has applied the log."],
+side:`<h3>Real systems</h3><p>PostgreSQL streaming replication, MySQL replication, Oracle Data Guard, SQL Server Always On, MongoDB replica sets, Redis replication and Kafka partitions all use a single leader.</p><p>In Project A, you will use Redis with one leader (primary) and one follower (replica).</p>`,
+build(){client("a",100,110,"Client A");client("b",100,330,"Client B");
+  server("L",380,210,"Leader",{role:"leader",value:"x = 5",log:[1]});
+  server("f1",660,100,"Follower 1",{role:"follower",value:"x = 5",log:[1]});
+  server("f2",660,320,"Follower 2",{role:"follower",value:"x = 5",log:[1]});
+  link("a","L");link("b","f2");link("L","f1");link("L","f2");},
+async play(){
+  await tell("Each replica has log entry 1: x = 5. Only the leader accepts writes.");
+  await tell("Client A sends a write to the leader: x = 7.",300);
+  await packet("a","L","SET x = 7");setVal("L","x = 7");logAdd("L",2,{cls:"new"});
+  await tell("The leader stores the change and adds entry 2 to its log. Then it replies OK. In this example, replication is asynchronous.",500);
+  await packet("L","a","OK",{cls:"ok"});
+  await tell("The leader sends entry 2 to each follower. Each follower applies it.",300);
+  await Promise.all(["f1","f2"].map(async f=>{await packet("L",f,"#2 x = 7");setVal(f,"x = 7");logAdd(f,2,{cls:"new"});}));
+  await sleep(900);
+  await tell("Client A writes y = 2. The same process occurs again.",300);
+  await packet("a","L","SET y = 2");setVal("L","x = 7, y = 2");logAdd("L",3,{cls:"new"});await packet("L","a","OK",{cls:"ok"});
+  await Promise.all(["f1","f2"].map(async f=>{await packet("L",f,"#3 y = 2");setVal(f,"x = 7, y = 2");logAdd(f,3,{cls:"new"});}));
+  await sleep(600);
+  await tell("Client B reads x from Follower 2. It receives 7.",300);
+  await packet("b","f2","GET x",{cls:"read"});await packet("f2","b","x = 7",{cls:"ok"});setVal("b","got x = 7");await sleep(900);
+  setVal("b","");await tell("Client B sends a write to Follower 2. The follower rejects it, because only the leader accepts writes.",300);
+  await packet("b","f2","SET x = 9");await packet("f2","b","ERROR: read-only",{cls:"err"});setVal("b","rejected");await sleep(900);
+  await tell("All replicas applied entries 1, 2 and 3 in the same order. Thus all replicas have the same data.");
+}});
+
+S.push({nav:"Sync vs async",title:"Synchronous and asynchronous replication",
+intro:["The leader can send changes to a follower in two ways.",
+"In synchronous replication, the leader waits until the follower confirms the change. Then it tells the client that the write is successful. In asynchronous replication, the leader replies to the client at once and does not wait for the follower.",
+"Select a scenario above the diagram. Each scenario shows one trade-off."],
+modes:[{k:"sync",l:"Synchronous"},{k:"async",l:"Asynchronous"},{k:"semi",l:"Semi-synchronous"}],
+points:["<b>Synchronous:</b> the follower always has the latest data. But one slow or stopped follower stops all writes.","<b>Asynchronous:</b> writes are fast, and the leader never waits. But if the leader stops, confirmed writes can be lost.","<b>Semi-synchronous:</b> one follower is synchronous, and the others are asynchronous. At least two nodes always have each confirmed write.","Most systems use asynchronous replication by default."],
+side:`<h3>Real systems</h3><dl><dt>PostgreSQL</dt><dd>The settings <code>synchronous_standby_names</code> and <code>synchronous_commit</code> select synchronous followers.</dd><dt>MySQL</dt><dd>The semi-synchronous replication plugin waits for one replica.</dd><dt>Redis</dt><dd>Replication is asynchronous. The <code>WAIT</code> command makes a client wait for replicas.</dd></dl>`,
+build(m){client("c",100,210,"Client");
+  server("L",380,210,"Leader",{role:"leader",value:"x = 0"});
+  server("f1",660,100,"Follower 1",{role:m==="semi"?"follower, sync":"follower",value:"x = 0"});
+  server("f2",660,320,"Follower 2",{role:m==="semi"?"follower, async":"follower",value:"x = 0"});
+  link("c","L");link("L","f1");link("L","f2");},
+async play(m){
+  const rep=async(f,lab,o)=>{await packet("L",f,lab,o);setVal(f,lab);};
+  if(m==="sync"){
+    await tell("Synchronous mode: the leader waits for confirmation from all followers. Then it tells the client OK.");
+    await tell("The client writes x = 1.",300);setVal("c","waiting…");
+    await packet("c","L","SET x = 1");setVal("L","x = 1");
+    await tell("The leader sends the change to both followers. It waits for both confirmations.",300);
+    await Promise.all(["f1","f2"].map(async f=>{await rep(f,"x = 1");await packet(f,"L","ACK",{cls:"ok"});}));
+    await tell("Both followers confirmed. Now the leader replies OK. All three replicas have x = 1.",300);
+    await packet("L","c","OK",{cls:"ok"});setVal("c","x = 1 saved");await sleep(1400);
+    await tell("Follower 2 becomes slow. For example, its network has too much traffic.",600);setRole("f2","follower, slow");flag("f2","stale");await sleep(1200);
+    await tell("The client writes x = 2. The leader must wait for Follower 2. The client also waits.",300);setVal("c","waiting…");
+    await packet("c","L","SET x = 2");setVal("L","x = 2");
+    await Promise.all([(async()=>{await rep("f1","x = 2");await packet("f1","L","ACK",{cls:"ok"});})(),
+                       (async()=>{await rep("f2","x = 2",{dur:4200});await packet("f2","L","ACK",{cls:"ok",dur:2600});})()]);
+    await packet("L","c","OK",{cls:"ok"});setVal("c","x = 2 saved (slow)");
+    pill("One slow follower makes every write slow","bad");await sleep(1200);
+    await tell("If Follower 2 stops completely, the leader cannot accept any write. This is the main problem of synchronous mode.");
+  } else if(m==="async"){
+    await tell("Asynchronous mode: the leader does not wait for the followers.");
+    await tell("The client writes x = 1. The leader stores it and replies OK at once.",300);
+    await packet("c","L","SET x = 1");setVal("L","x = 1");await packet("L","c","OK",{cls:"ok"});setVal("c","x = 1 saved");
+    await tell("After that, the leader sends the change to the followers.",300);
+    await Promise.all(["f1","f2"].map(f=>rep(f,"x = 1")));await sleep(800);
+    await tell("The client writes x = 2. Again, the leader replies OK at once.",300);
+    await packet("c","L","SET x = 2");setVal("L","x = 2");await packet("L","c","OK",{cls:"ok"});setVal("c","x = 2 saved");
+    await tell("The leader stops before it sends x = 2 to the followers.",300);down("L");await sleep(1800);
+    await tell("The followers still have x = 1. Follower 1 becomes the new leader. The write x = 2 is lost.",300);
+    setRole("f1","leader");pill("Lost write: the client received OK, but x = 2 is gone","bad");await sleep(2400);
+    await tell("Asynchronous mode is fast, and a slow follower does not stop writes. But a confirmed write is not always durable.");
+  } else {
+    await tell("Semi-synchronous mode: Follower 1 is synchronous. Follower 2 is asynchronous.");
+    await tell("The client writes x = 1. The leader waits only for Follower 1.",300);setVal("c","waiting…");
+    await packet("c","L","SET x = 1");setVal("L","x = 1");
+    const p2=rep("f2","x = 1",{dur:4000});p2.catch(()=>{});
+    await rep("f1","x = 1");await packet("f1","L","ACK",{cls:"ok"});
+    await packet("L","c","OK",{cls:"ok"});setVal("c","x = 1 saved");
+    await p2;await sleep(600);
+    await tell("Now the leader stops.",300);down("L");await sleep(1500);
+    await tell("Follower 1 has all confirmed writes. It becomes the new leader. No confirmed write is lost.",300);
+    setRole("f1","leader");pill("Safe failover: at least two nodes had x = 1","good");await sleep(2000);
+    await tell("If the synchronous follower becomes slow, the system makes an asynchronous follower synchronous.");
+  }
+}});
+
+S.push({nav:"Add a new follower",title:"Add a new follower",
+intro:["Sometimes you must add a new follower. For example, you replace a broken node, or you add more nodes for reads.",
+"Do not only copy the data files. Clients write data during the copy, thus the files change. Use a snapshot and a log position."],
+points:["<b>Step 1:</b> take a consistent snapshot of the leader database. Do not lock the database.","<b>Step 2:</b> copy the snapshot to the new follower.","<b>Step 3:</b> the snapshot has a log position. The new follower requests all changes after that position.","<b>Step 4:</b> the follower applies these changes. Now it has caught up and continues as a normal follower."],
+side:`<h3>Real systems</h3><dl><dt>PostgreSQL</dt><dd><code>pg_basebackup</code> makes the snapshot. The log position is the log sequence number (LSN).</dd><dt>MySQL</dt><dd>The clone plugin or Percona XtraBackup makes the snapshot. The log position is the binlog coordinates.</dd><dt>Redis</dt><dd>The leader makes an RDB snapshot for a full resync. The position is the replication offset.</dd></dl>`,
+build(){client("c",100,90,"Client");
+  server("L",330,230,"Leader",{role:"leader",value:"entries 1–4",log:[1,2,3,4]});
+  server("f1",630,90,"Follower 1",{role:"follower",value:"entries 1–4",log:[1,2,3,4]});
+  link("c","L");link("L","f1");},
+async play(){
+  await tell("The leader and Follower 1 have log entries 1 to 4. You want to add a new follower.",400);
+  server("f2",630,330,"Follower 2",{role:"new",value:"(empty)",appear:1});link("L","f2");await sleep(2000);
+  await tell("Step 1: the leader takes a consistent snapshot at log position 4. The database does not lock.",300);
+  [0,1,2,3].forEach(i=>logMark("L",i,"snap"));await sleep(2000);
+  await tell("Step 2: the leader sends the snapshot to the new follower. For a large database, this takes a long time.",300);
+  const snap=packet("L","f2","snapshot @ 4",{cls:"big",dur:6000});snap.catch(()=>{});
+  await sleep(1200);
+  say("During the copy, clients continue to write. Entries 5 and 6 arrive.");
+  for(const e of [5,6]){await packet("c","L","SET …",{dur:900});logAdd("L",e,{cls:"new"});setVal("L","entries 1–"+e);
+    await packet("L","f1","#"+e,{dur:900});logAdd("f1",e,{cls:"new"});setVal("f1","entries 1–"+e);}
+  await snap;
+  [1,2,3,4].forEach(e=>logAdd("f2",e,{cls:"snap"}));setVal("f2","entries 1–4");
+  await tell("The new follower loads the snapshot. It knows that the snapshot position is 4.");
+  await tell("Step 3: the new follower requests all changes after position 4.",300);
+  await packet("f2","L","changes after 4?",{cls:"read"});
+  await tell("Step 4: the leader sends entries 5 and 6. The follower applies them.",300);
+  for(const e of [5,6]){await packet("L","f2","#"+e);logAdd("f2",e,{cls:"new"});setVal("f2","entries 1–"+e);}
+  setRole("f2","follower");pill("Caught up: the new follower has all the data","good");await sleep(1800);
+  await tell("From now on, Follower 2 receives each new entry like Follower 1.");
+}});
+
+S.push({nav:"Follower failure",title:"Follower failure: catch-up recovery",
+intro:["Each follower keeps a log of the changes that it received from the leader. The log is on the local disk of the follower.",
+"If a follower stops and starts again, it reads the last log position from its disk. Then it requests all changes after that position from the leader. This process is catch-up recovery."],
+points:["Each follower stores the position of the last change that it applied.","After a restart, the follower requests only the changes after that position.","The leader must keep old log entries long enough. If the leader deleted them, the follower needs a new snapshot."],
+side:`<h3>Real systems</h3><dl><dt>PostgreSQL</dt><dd>A replication slot makes the leader keep the WAL until the follower receives it.</dd><dt>Redis</dt><dd>The replica sends <code>PSYNC</code> with its replication offset. If the leader still has those bytes in its backlog, a partial resync occurs. If not, a full resync occurs.</dd></dl>`,
+build(){client("c",100,210,"Client");
+  server("L",380,210,"Leader",{role:"leader",value:"position 3",log:[1,2,3]});
+  server("f1",660,100,"Follower 1",{role:"follower",value:"position 3",log:[1,2,3]});
+  server("f2",660,320,"Follower 2",{role:"follower",value:"position 3",log:[1,2,3]});
+  link("c","L");link("L","f1");link("L","f2");},
+async play(){
+  await tell("All replicas are at log position 3.");
+  await tell("Follower 1 stops. For example, it restarts for a software update.",300);down("f1");await sleep(1600);
+  await tell("Clients continue to write. The leader adds entries 4 and 5. Follower 1 does not receive them.",300);
+  for(const e of [4,5]){await packet("c","L","SET …");logAdd("L",e,{cls:"new"});setVal("L","position "+e);
+    await Promise.all([packet("L","f2","#"+e).then(()=>{logAdd("f2",e,{cls:"new"});setVal("f2","position "+e);}),packet("L","f1","#"+e,{lose:true})]);}
+  await tell("Follower 1 starts again. It reads its local log from the disk. The last entry is 3.",300);
+  down("f1",false);flag("f1","stale");setVal("f1","last = 3");await sleep(2000);
+  await tell("Follower 1 requests all changes after entry 3.",300);
+  await packet("f1","L","changes after 3?",{cls:"read"});
+  await tell("The leader sends entries 4 and 5. Follower 1 applies them.",300);
+  for(const e of [4,5]){await packet("L","f1","#"+e);logAdd("f1",e,{cls:"new"});setVal("f1","position "+e);}
+  flag("f1","stale",false);pill("Caught up: Follower 1 is at position 5","good");await sleep(1800);
+  await tell("The follower did not need a new snapshot, because the leader still had entries 4 and 5.");
+}});
+
+S.push({nav:"Leader failure",title:"Leader failure: failover",
+intro:["Leader failure is more difficult. One follower must become the new leader. Clients must send their writes to the new leader. The other followers must get changes from the new leader. This process is failover.",
+"An operator can do failover manually, or the system can do it automatically. Select a scenario above the diagram."],
+modes:[{k:"normal",l:"Failover"},{k:"split",l:"Split brain"}],
+points:["<b>Step 1, detect:</b> nodes send heartbeat messages. If the leader does not reply in a time limit (for example, 30 seconds), the system decides that the leader stopped.","<b>Step 2, choose:</b> the best new leader is the follower with the most recent data. Often the nodes vote. Phase 4 (Raft) shows how.","<b>Step 3, reconfigure:</b> clients send writes to the new leader. If the old leader starts again, it must become a follower."],
+side:`<h3>Warnings</h3><dl><dt>Lost writes</dt><dd>With asynchronous replication, the new leader can miss the last writes of the old leader. Usually the system discards them.</dd><dt>Split brain</dt><dd>Two nodes think that they are the leader. Both accept writes. Data can become corrupt.</dd><dt>Time limit</dt><dd>A long time limit makes recovery slow. A short time limit causes failovers when the network is only slow.</dd></dl>`,
+build(m){client("ca",100,110,"Client A");client("cb",100,330,"Client B");
+  if(m==="split"){
+    server("L",360,220,"Node 1",{role:"leader, epoch 1",value:"x = 5"});
+    server("f1",650,100,"Node 2",{role:"follower",value:"x = 5"});
+    server("f2",650,330,"Node 3",{role:"follower",value:"x = 5"});
+  } else {
+    server("L",360,220,"Node 1",{role:"leader",value:"position 7",log:[1,2,3,4,5,6,7]});
+    server("f1",650,100,"Node 2",{role:"follower",value:"position 6",log:[1,2,3,4,5,6]});
+    server("f2",650,330,"Node 3",{role:"follower",value:"position 5",log:[1,2,3,4,5]});
+  }
+  link("ca","L");link("cb","L");link("L","f1");link("L","f2");},
+async play(m){
+  if(m!=="split"){
+    await tell("The leader sends a heartbeat message to each follower at regular intervals.",300);
+    for(let i=0;i<2;i++){await Promise.all([packet("L","f1","♥",{cls:"hb",dur:800}),packet("L","f2","♥",{cls:"hb",dur:800})]);await sleep(300);}
+    await tell("Entry 7 is only on the leader. The followers did not receive it yet. Node 3 is also behind.",300);logMark("L",6,"risk");await sleep(2600);
+    await tell("The leader stops.",300);down("L");await sleep(1200);
+    await tell("Step 1, detect: the followers do not receive a heartbeat. Their time limit expires.",300);
+    await Promise.all([timer("f1",2800),timer("f2",2800)]);
+    pill("The leader is not available","bad");await sleep(1500);pill("");
+    await tell("Step 2, choose: Node 2 has the most recent data (position 6). It becomes the new leader.",300);
+    flag("f1","hl");await sleep(1600);setRole("f1","leader");flag("f1","hl",false);await sleep(600);
+    await tell("Step 3, reconfigure: clients send writes to the new leader. Node 3 gets changes from the new leader.",300);
+    link("ca","f1");link("f1","f2");
+    await packet("ca","f1","SET y = 1");logAdd("f1",7,{cls:"new"});setVal("f1","position 7");
+    for(const e of [6,7]){await packet("f1","f2","#"+e);logAdd("f2",e,{cls:"new"});setVal("f2","position "+e);}
+    await tell("The old entry 7 was only on Node 1. It is lost. The new entry 7 contains different data.",300);
+    logMark("L",6,"lost");pill("Lost write: the old entry 7 is discarded","bad");await sleep(2600);
+    await tell("Real incident (GitHub, 2012): an out-of-date MySQL follower became the leader. It used some primary keys again. Redis also stored these keys, thus some private data went to the wrong users.");
+  } else {
+    await tell("Each leader has an epoch number. Node 1 is the leader in epoch 1.");
+    await tell("A network problem isolates Node 1. Node 1 continues to operate, but its heartbeats do not arrive.",300);flag("L","cut");
+    await Promise.all([packet("L","f1","♥",{cls:"hb",lose:true}),packet("L","f2","♥",{cls:"hb",lose:true})]);
+    await Promise.all([timer("f1",2400),timer("f2",2400)]);
+    await tell("The followers decide that the leader stopped. Node 2 becomes the leader in epoch 2.",300);
+    setRole("f1","leader, epoch 2");link("ca","f1");link("f1","f2");await sleep(1600);
+    await tell("The network becomes normal again. Node 1 does not know about epoch 2. It still thinks that it is the leader.",300);flag("L","cut",false);await sleep(1600);
+    await tell("Client B sends x = 3 to Node 1. Client A sends x = 8 to Node 2. Both nodes accept the write.",300);
+    await Promise.all([packet("cb","L","SET x = 3"),packet("ca","f1","SET x = 8")]);
+    setVal("L","x = 3");setVal("f1","x = 8");flag("L","conflict");flag("f1","conflict");
+    pill("Split brain: two leaders accept different values","bad");await sleep(2400);
+    await tell("This is split brain. The data on the two leaders is different. Data can become corrupt.");pill("");
+    await tell("Fix: use a fencing token. Each write includes the epoch number. A node rejects writes from an old epoch.",300);
+    await packet("L","f2","x = 3 @ epoch 1");await packet("f2","L","REJECT: epoch 2",{cls:"err"});
+    await tell("Node 1 sees the higher epoch. It does not accept writes now. It becomes a follower, and its write x = 3 is discarded.",300);
+    setRole("L","follower");flag("L","conflict",false);flag("f1","conflict",false);
+    await Promise.all([packet("f1","L","x = 8 @ epoch 2").then(()=>setVal("L","x = 8")),packet("f1","f2","x = 8 @ epoch 2").then(()=>setVal("f2","x = 8"))]);
+    pill("One leader again: epoch 2","good");await sleep(1800);
+    await tell("Raft uses the same idea in Phase 4. Raft calls the epoch number a term.");
+  }
+}});
+
+S.push({nav:"Log formats",title:"Replication log formats",
+intro:["The leader can send changes to the followers in different formats. Each format has advantages and problems.",
+"Select a scenario above the diagram to compare statement-based replication with logical (row-based) replication."],
+modes:[{k:"stmt",l:"Statement-based"},{k:"logical",l:"Logical (row-based)"}],
+points:["<b>Statement-based:</b> the leader sends each SQL statement. Functions such as NOW() and RAND() give a different result on each replica.","<b>Write-ahead log (WAL) shipping:</b> the leader sends its low-level disk log. All replicas must use the same storage engine version, thus upgrades without downtime are difficult.","<b>Logical (row-based):</b> the leader sends the new values of each changed row. The format does not depend on the storage engine.","<b>Trigger-based:</b> code in the database copies the changes. This is flexible, but slow and easy to break."],
+side:`<h3>Real systems</h3><dl><dt>Statement-based</dt><dd>MySQL before version 5.1. Today, MySQL changes to row-based replication when a statement is not deterministic.</dd><dt>WAL shipping</dt><dd>PostgreSQL streaming replication and Oracle physical standby.</dd><dt>Logical log</dt><dd>MySQL row-based binlog and PostgreSQL logical decoding. Debezium reads these logs for change data capture (CDC).</dd><dt>Redis</dt><dd>Redis sends the write commands, but it makes them deterministic first.</dd></dl>`,
+build(){client("c",90,210,"Client");
+  server("L",330,210,"Leader",{role:"leader",value:"(no row)"});
+  server("f1",650,100,"Follower 1",{role:"follower",value:"(no row)"});
+  server("f2",650,320,"Follower 2",{role:"follower",value:"(no row)"});
+  link("c","L");link("L","f1");link("L","f2");},
+async play(m){
+  if(m==="stmt"){
+    await tell("Statement-based replication: the leader sends each SQL statement to the followers. Each follower runs the statement again.");
+    await tell("The client sends a statement: insert a post with created_at = NOW().",300);
+    await packet("c","L","INSERT … NOW()");setVal("L","t = 10:00:01.120");
+    await tell("The leader runs the statement. NOW() returns 10:00:01.120.");
+    await tell("The leader sends the statement, not the result.",300);
+    await Promise.all([packet("L","f1","INSERT … NOW()",{dur:1400}).then(()=>setVal("f1","t = 10:00:01.480")),
+                       packet("L","f2","INSERT … NOW()",{dur:2400}).then(()=>setVal("f2","t = 10:00:01.910"))]);
+    flag("f1","conflict");flag("f2","conflict");pill("Three replicas, three different values","bad");
+    await tell("Each follower runs NOW() at a different time. Now the replicas have different data.");
+    await tell("RAND(), auto-increment columns and triggers can cause the same problem.");
+  } else {
+    await tell("Logical (row-based) replication: the leader sends the new values of each changed row.");
+    await tell("The client sends the same statement. The leader runs it.",300);
+    await packet("c","L","INSERT … NOW()");setVal("L","t = 10:00:01.120");
+    await tell("The leader sends the row values: id = 1, created_at = 10:00:01.120.",300);
+    await Promise.all(["f1","f2"].map((f,i)=>packet("L",f,"row 1: 10:00:01.120",{dur:1400+i*900}).then(()=>setVal(f,"t = 10:00:01.120"))));
+    pill("All replicas have the same value","good");
+    await tell("The followers do not run NOW() again. They copy the value.");
+    await tell("Other systems can also read a logical log, for example a search index or a cache. This is change data capture (CDC).");
+  }
+}});
+
+S.push({nav:"Replication lag",title:"Problems with replication lag",
+intro:["With asynchronous replication, a follower can be behind the leader. This delay is replication lag. Usually the lag is less than one second. When the system has a high load or a network problem, the lag can be many seconds or minutes.",
+"If all writes stop, the followers eventually get the same data as the leader. This is eventual consistency. Eventual consistency causes three common problems for users. Select a scenario above the diagram."],
+modes:[{k:"ryw",l:"Read your writes"},{k:"mono",l:"Monotonic reads"},{k:"prefix",l:"Consistent prefix"}],
+points:["<b>Read-your-writes:</b> a user always sees the data that the same user wrote.","<b>Monotonic reads:</b> after a user sees new data, a later read does not show older data.","<b>Consistent prefix reads:</b> if writes occur in an order, each reader sees them in the same order.","These guarantees are weaker than full consistency, but they prevent the most visible problems."],
+side:`<h3>Why not use synchronous replication?</h3><p>Many systems add followers to serve more reads. With many followers, synchronous replication is too slow, and one bad node stops all writes.</p><p>Thus most read-scaling systems use asynchronous replication. Then the application must handle replication lag. You will see this lag in Project A.</p>`,
+build(m){
+  if(m==="prefix"){
+    client("a",80,100,"Alice");client("b",80,330,"Bob");
+    server("p1l",290,100,"Partition 1",{role:"leader",value:"(empty)"});
+    server("p2l",290,330,"Partition 2",{role:"leader",value:"(empty)"});
+    server("p1f",540,100,"Partition 1",{role:"follower",value:"(empty)"});
+    server("p2f",540,330,"Partition 2",{role:"follower",value:"(empty)"});
+    client("o",720,215,"Observer");
+    link("a","p1l");link("b","p2l");link("p1l","p1f");link("p2l","p2f");link("o","p1f");link("o","p2f");
+  } else {
+    client("u",110,220,"User");
+    const one=m==="mono";
+    server("L",420,90,"Leader",{role:"leader",value:one?"comments: 1":"comments: 0"});
+    server("f1",700,220,"Follower 1",{role:"follower",value:one?"comments: 1":"comments: 0"});
+    server("f2",420,340,"Follower 2",{role:"follower, lag",value:"comments: 0"});
+    flag("f2","stale");
+    link("u","L");link("u","f1");link("u","f2");link("L","f1");link("L","f2");
+  }},
+async play(m){
+  if(m==="ryw"){
+    await tell("Follower 2 has a replication lag. It is some seconds behind the leader.");
+    await tell("The user posts a comment. The write goes to the leader.",300);
+    await packet("u","L","POST comment");setVal("L","comments: 1");await packet("L","u","OK",{cls:"ok"});
+    await tell("The leader replicates the comment. Follower 1 receives it quickly. The change for Follower 2 is still in a queue.",300);
+    await packet("L","f1","+ comment");setVal("f1","comments: 1");await sleep(1200);
+    await tell("The user loads the page again. The read goes to Follower 2.",300);
+    await packet("u","f2","GET comments",{cls:"read"});await packet("f2","u","comments: 0",{cls:"err"});setVal("u","my comment is gone?");
+    pill("Read-your-writes is violated","bad");await sleep(2000);
+    await tell("Read-your-writes consistency means: a user always sees the data that the same user wrote.");pill("");setVal("u","");
+    await tell("Fix 1: read data that the user can change from the leader. For example, do this for one minute after the last write of the user.",300);
+    await packet("u","L","GET comments",{cls:"read"});await packet("L","u","comments: 1",{cls:"ok"});setVal("u","sees 1 comment");
+    pill("The user sees the comment","good");await sleep(1800);pill("");
+    await tell("Fix 2: the client remembers the log position of its last write. It reads only from a replica that has that position.");
+    await packet("L","f2","+ comment");setVal("f2","comments: 1");flag("f2","stale",false);setRole("f2","follower");
+    await tell("The lag is temporary. Eventually, Follower 2 has the same data as the leader.");
+  } else if(m==="mono"){
+    await tell("A comment is on the leader and on Follower 1. Follower 2 is behind.");
+    await tell("The user reads the comments. The read goes to Follower 1. The user sees 1 comment.",300);
+    await packet("u","f1","GET comments",{cls:"read"});await packet("f1","u","comments: 1",{cls:"ok"});setVal("u","sees 1");await sleep(1000);
+    await tell("The user loads the page again. This time, the read goes to Follower 2. The comment disappears.",300);
+    await packet("u","f2","GET comments",{cls:"read"});await packet("f2","u","comments: 0",{cls:"err"});setVal("u","sees 0");
+    pill("Data moved back in time: monotonic reads violated","bad");await sleep(2400);pill("");
+    await tell("Monotonic reads means: after a user sees new data, the user does not see older data in a later read.");
+    await tell("Fix: each user always reads from the same replica. For example, select the replica with a hash of the user ID.",300);
+    for(let i=0;i<2;i++){await packet("u","f1","GET comments",{cls:"read"});await packet("f1","u","comments: 1",{cls:"ok"});}
+    setVal("u","sees 1, then 1");pill("Same replica each time: no time travel","good");await sleep(1800);
+    await tell("If that replica stops, the system must send the user to a different replica.");
+  } else {
+    await tell("The database has two partitions. Each partition has a leader and a follower. Partition 1 has a lag.");
+    setRole("p1f","follower, lag");flag("p1f","stale");await sleep(800);
+    await tell("Alice writes a question to Partition 1: 'What time is the meeting?'",300);
+    await packet("a","p1l","Q: meeting time?");setVal("p1l","Q: meeting time?");
+    await tell("Bob reads the question. He writes an answer to Partition 2: 'At 3 PM.'",300);
+    await packet("b","p2l","A: at 3 PM");setVal("p2l","A: at 3 PM");
+    await tell("Partition 2 replicates quickly. Partition 1 replicates slowly.",300);
+    const slow=packet("p1l","p1f","Q: meeting time?",{dur:7000});slow.catch(()=>{});
+    await packet("p2l","p2f","A: at 3 PM");setVal("p2f","A: at 3 PM");
+    await tell("An observer reads from the two followers.",300);
+    await Promise.all([packet("o","p1f","GET",{cls:"read"}),packet("o","p2f","GET",{cls:"read"})]);
+    await Promise.all([packet("p1f","o","(nothing)",{cls:"err"}),packet("p2f","o","A: at 3 PM",{cls:"ok"})]);
+    setVal("o","sees answer only");pill("Answer before question: consistent prefix violated","bad");
+    await slow;setVal("p1f","Q: meeting time?");flag("p1f","stale",false);
+    await tell("Consistent prefix reads means: if writes occur in an order, a reader sees them in the same order.");pill("");
+    await tell("Fix: write data that has a causal relation to the same partition. Then all readers see the question before the answer.");
+  }
+}});
+
+S.push({nav:"Multi-leader",title:"Multi-leader replication",
+intro:["In multi-leader replication, more than one node accepts writes. Each leader is also a follower of the other leaders.",
+"Use this method when you have many datacenters, apps that operate offline (each device is a leader), or real-time collaborative editing. In one datacenter, it usually adds complexity without a large advantage."],
+points:["Each datacenter has a leader. Users write to the nearest leader, thus writes are fast.","If one datacenter stops, the other datacenters continue to accept writes.","The main problem: two leaders can accept conflicting writes to the same data.","Multi-leader systems often have problems with auto-increment keys, triggers and constraints."],
+side:`<h3>Methods to resolve conflicts</h3><ul><li><b>Avoid conflicts:</b> send all writes for one record to the same leader.</li><li><b>Last write wins (LWW):</b> keep the write with the highest timestamp. The other writes are lost.</li><li><b>Merge:</b> keep all values, and let the application or the user select one.</li><li><b>CRDTs:</b> special data types that merge concurrent changes automatically.</li></ul>
+<h3 style="margin-top:14px">Topologies</h3>
+<div class="topo">
+<figure><svg viewBox="0 0 90 80" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2"><path d="M45 12 L78 40 L45 68 L12 40 Z"/></g><g fill="currentColor"><circle cx="45" cy="12" r="6"/><circle cx="78" cy="40" r="6"/><circle cx="45" cy="68" r="6"/><circle cx="12" cy="40" r="6"/></g></svg><b>Circular</b>Each node sends writes to the next node. One stopped node stops the flow.</figure>
+<figure><svg viewBox="0 0 90 80" aria-hidden="true"><g stroke="currentColor" stroke-width="2"><line x1="45" y1="40" x2="45" y2="10"/><line x1="45" y1="40" x2="76" y2="62"/><line x1="45" y1="40" x2="14" y2="62"/></g><g fill="currentColor"><circle cx="45" cy="40" r="7"/><circle cx="45" cy="10" r="6"/><circle cx="76" cy="62" r="6"/><circle cx="14" cy="62" r="6"/></g></svg><b>Star</b>One root node sends writes to all others. The root is a single point of failure.</figure>
+<figure><svg viewBox="0 0 90 80" aria-hidden="true"><g stroke="currentColor" stroke-width="2"><line x1="20" y1="15" x2="70" y2="15"/><line x1="70" y1="15" x2="70" y2="65"/><line x1="70" y1="65" x2="20" y2="65"/><line x1="20" y1="65" x2="20" y2="15"/><line x1="20" y1="15" x2="70" y2="65"/><line x1="70" y1="15" x2="20" y2="65"/></g><g fill="currentColor"><circle cx="20" cy="15" r="6"/><circle cx="70" cy="15" r="6"/><circle cx="70" cy="65" r="6"/><circle cx="20" cy="65" r="6"/></g></svg><b>All-to-all</b>Each leader sends writes to all others. Messages can arrive in a different order.</figure>
+</div>`,
+build(){zone(30,34,355,370,"Datacenter 1 (Mumbai)");zone(415,34,355,370,"Datacenter 2 (Frankfurt)");
+  client("a",110,130,"User A");client("b",690,130,"User B");
+  server("L1",250,260,"Leader 1",{role:"leader",value:"title: Draft"});
+  server("L2",550,260,"Leader 2",{role:"leader",value:"title: Draft"});
+  link("a","L1");link("b","L2");link("L1","L2");},
+async play(){
+  await tell("Each datacenter has its own leader. Each leader accepts writes. Users write to the nearest leader.");
+  await tell("User A changes the title to 'A'. At the same time, User B changes the title to 'B'.",300);
+  await Promise.all([packet("a","L1","title = A").then(()=>setVal("L1","title: A")),packet("b","L2","title = B").then(()=>setVal("L2","title: B"))]);
+  await Promise.all([packet("L1","a","OK",{cls:"ok"}),packet("L2","b","OK",{cls:"ok"})]);
+  await tell("Each leader accepted its write. Then the leaders send their changes to each other asynchronously.",300);
+  await Promise.all([packet("L1","L2","title=A @t10",{off:-16,dur:1700}),packet("L2","L1","title=B @t12",{off:16,dur:1700})]);
+  setVal("L1","A or B?");setVal("L2","B or A?");flag("L1","conflict");flag("L2","conflict");pill("Write conflict","bad");
+  await tell("Each leader now has two different values for the same field. This is a write conflict.");
+  await tell("Last write wins (LWW): each write has a timestamp. Each leader keeps the write with the highest timestamp: B (t12).",300);
+  await sleep(900);setVal("L1","title: B");setVal("L2","title: B");flag("L1","conflict",false);flag("L2","conflict",false);
+  pill("Same value everywhere, but write A is lost without a warning","warn");
+  await tell("LWW is simple, but it discards data. Clock differences between datacenters make this worse. The panel below shows other methods.");
+}});
+
+S.push({nav:"Leaderless",title:"Leaderless replication",
+intro:["In leaderless replication, there is no leader. The client sends each write to several replicas at the same time. The client also reads from several replicas at the same time.",
+"Amazon described this design in the Dynamo paper (2007). Systems with this design are often called Dynamo-style databases."],
+points:["Each value has a version number. The client keeps the value with the newest version.","<b>Read repair:</b> if a read finds a replica with an old value, the client writes the new value to it.","<b>Anti-entropy:</b> a background process compares the replicas and copies missing data.","<b>Sloppy quorum and hinted handoff:</b> if the usual replicas are not available, other nodes accept the writes temporarily. Later, they send the writes to the usual replicas."],
+side:`<h3>Real systems</h3><p>Apache Cassandra, ScyllaDB, Riak and Voldemort use leaderless replication.</p><p>Amazon DynamoDB has a similar name, but it is a different system. It uses a leader for each partition.</p><h3 style="margin-top:12px">Terms</h3><dl><dt>n</dt><dd>The number of replicas for each value.</dd><dt>w</dt><dd>The number of replicas that must confirm a write.</dd><dt>r</dt><dd>The number of replicas that must reply to a read.</dd></dl>`,
+build(){client("c",120,210,"Client");
+  server("n1",560,80,"Replica 1",{role:"replica",value:"x = v1"});
+  server("n2",560,210,"Replica 2",{role:"replica",value:"x = v1"});
+  server("n3",560,340,"Replica 3",{role:"replica",value:"x = v1"});
+  link("c","n1");link("c","n2");link("c","n3");},
+async play(){
+  await tell("There is no leader. Each replica accepts writes. In this example, n = 3, w = 2 and r = 2.");
+  await tell("Replica 3 is not available.",300);down("n3");await sleep(1400);
+  await tell("The client sends the write x = v2 to all three replicas at the same time.",300);setVal("c","writing…");
+  await Promise.all([packet("c","n1","x = v2").then(()=>setVal("n1","x = v2")),packet("c","n2","x = v2").then(()=>setVal("n2","x = v2")),packet("c","n3","x = v2",{lose:true})]);
+  await Promise.all([packet("n1","c","ACK",{cls:"ok"}),packet("n2","c","ACK",{cls:"ok"})]);
+  setVal("c","2 ACKs, write OK");
+  await tell("Replicas 1 and 2 confirm. Two confirmations are equal to w, thus the write is successful.");
+  await tell("Replica 3 starts again. It still has the old value v1.",300);down("n3",false);flag("n3","stale");await sleep(1600);
+  await tell("The client reads x. It sends the read to all replicas and waits for r = 2 replies.",300);setVal("c","reading…");
+  await Promise.all(["n1","n2","n3"].map(n=>packet("c",n,"GET x",{cls:"read"})));
+  await Promise.all([packet("n2","c","v2, version 2",{cls:"ok"}),packet("n3","c","v1, version 1",{cls:"err"})]);
+  setVal("c","keeps v2 (newest)");
+  await tell("The client receives version 2 and version 1. It keeps the newest version: v2. It does not wait for the reply from Replica 1.");
+  await tell("Read repair: the client sends v2 to Replica 3, because Replica 3 returned an old value.",300);
+  await packet("c","n3","repair: x = v2",{cls:"big"});setVal("n3","x = v2");flag("n3","stale",false);
+  pill("All replicas have v2 again","good");await sleep(1800);
+  await tell("Anti-entropy: a background process also compares the replicas and copies missing data. It does not wait for a read.");
+}});
+
+const Q={n:3,w:2,r:2,ws:[],rs:[]};
+function qPick(){
+  const sh=()=>[...Array(Q.n).keys()].map(v=>[Math.random(),v]).sort((a,b)=>a[0]-b[0]).map(v=>v[1]);
+  Q.ws=sh().slice(0,Q.w);Q.rs=sh().slice(0,Q.r);
+}
+function qDraw(){
+  layers();
+  const{n,w,r,ws,rs}=Q;
+  const gap=n>1?Math.min(105,620/(n-1)):0,y=200;
+  const lg=el("g",{transform:"translate(40,46)"},svg);
+  el("circle",{cx:10,cy:0,r:10,fill:"var(--leader)"},lg);txt("text",{x:28,y:5,class:"qleg"},lg,"In the write set: has the new value v2");
+  el("circle",{cx:330,cy:0,r:10,class:"rring",style:"stroke-width:4"},lg);txt("text",{x:348,y:5,class:"qleg"},lg,"In the read set: the client reads this replica");
+  for(let i=0;i<n;i++){
+    const x=400+(i-(n-1)/2)*gap,inW=ws.includes(i),inR=rs.includes(i);
+    const g=el("g",{class:"qn"+(inW?" w":"")+(inR?" r":""),transform:`translate(${x},${y})`},svg);
+    if(inR)el("circle",{r:42,class:"rring"},g);
+    el("circle",{r:32,class:"qbody"},g);
+    txt("text",{y:-2,class:"qname"},g,"R"+(i+1));
+    txt("text",{y:16,class:"qval"},g,inW?"v2":"v1");
+    if(inW&&inR)txt("text",{y:68,class:"qhit"},g,"latest ✓");
+  }
+  const ov=ws.filter(i=>rs.includes(i)).length;
+  txt("text",{x:400,y:330,class:"qsum","text-anchor":"middle"},svg,`w + r = ${w+r}    n = ${n}    overlap now: ${ov}`);
+  const res=$("#qres");if(!res)return;
+  const g=w+r>n;
+  res.className="qres "+(g?"good":"bad");
+  res.innerHTML=(g?`<p><b>w + r = ${w+r}, and n = ${n}. Because w + r &gt; n, the read set always includes at least one replica with v2. The read returns the latest value.</b></p>`
+    :`<p><b>w + r = ${w+r}, and n = ${n}. Because w + r ≤ n, the read set and the write set can be separate. ${ov?"This time they overlap, but only by chance.":"This time they do not overlap. The read returns only old values."}</b></p>`)
+    +`<p>Writes can continue when up to ${n-w} replica${n-w===1?" is":"s are"} not available. Reads can continue when up to ${n-r} replica${n-r===1?" is":"s are"} not available.</p>`;
+}
+S.push({nav:"Quorum calculator",title:"Quorum calculator",static:true,
+intro:["In a leaderless system, each value has n replicas. Each write must get confirmation from w replicas. Each read must get replies from r replicas.",
+"If w + r > n, the write set and the read set always overlap. Then each read gets at least one replica with the latest value. Change n, w and r below. Then select new random sets to test the rule."],
+points:["A common configuration is an odd n, with w = r = (n + 1) / 2. For example, n = 3, w = 2, r = 2.","A small w makes writes fast. A small r makes reads fast. But the sum must stay above n for the guarantee.","Even when w + r > n, edge cases can return old values: sloppy quorums, concurrent writes, writes that succeed on fewer than w replicas, and a replica restored from an old backup.","Thus a quorum gives a probability of the latest value, not a strong guarantee such as linearizability."],
+side:`<h3>How to read the diagram</h3><p>A filled circle is a replica that received the write. A ring is a replica that the client reads. A replica with both marks returns the latest value to the client.</p><p>The text under the controls explains the result in each case.</p>`,
+build(){qPick();qDraw();},
+panel(box){
+  box.innerHTML=`<section class="card"><div class="qgrid">
+  <div><label for="qn">n (replicas) <span id="qnv"></span></label><input type="range" id="qn" min="1" max="7"></div>
+  <div><label for="qw">w (write confirmations) <span id="qwv"></span></label><input type="range" id="qw" min="1" max="3"></div>
+  <div><label for="qr">r (read replies) <span id="qrv"></span></label><input type="range" id="qr" min="1" max="3"></div></div>
+  <div class="qbtns"><button class="primary" id="qrand">Select new random sets</button>
+  <button data-p="3,2,2">n=3, w=2, r=2</button><button data-p="5,3,3">n=5, w=3, r=3</button><button data-p="3,3,1">n=3, w=3, r=1</button><button data-p="3,1,1">n=3, w=1, r=1</button></div>
+  <div id="qres" class="qres"></div></section>`;
+  const sync=()=>{for(const k of ["n","w","r"]){const i=$("#q"+k);if(k!=="n")i.max=Q.n;i.value=Q[k];$("#q"+k+"v").textContent=Q[k];}};
+  const upd=()=>{Q.n=+$("#qn").value;Q.w=Math.min(+$("#qw").value,Q.n);Q.r=Math.min(+$("#qr").value,Q.n);sync();qPick();qDraw();};
+  ["qn","qw","qr"].forEach(id=>$("#"+id).addEventListener("input",upd));
+  $("#qrand").addEventListener("click",()=>{qPick();qDraw();});
+  box.querySelectorAll("[data-p]").forEach(b=>b.addEventListener("click",()=>{const[n,w,r]=b.dataset.p.split(",").map(Number);Object.assign(Q,{n,w,r});sync();qPick();qDraw();}));
+  sync();qDraw();
+}});
+
+S.push({nav:"Summary and self-check",title:"Summary and self-check",static:true,noStage:true,
+intro:["This page compares the three replication methods. Then it gives questions to test your knowledge. Write each answer without help. Then open the answer and compare."],
+points:["Single-leader replication is simple and gives one order of writes. Failover is its difficult part.","Asynchronous replication causes replication lag. Lag causes read-your-writes, monotonic-read and consistent-prefix problems.","Multi-leader and leaderless replication accept writes on many nodes. Thus they must resolve write conflicts.","Quorums (w + r > n) help leaderless systems to return recent values."],
+side:`<h3>Next step</h3><p>Do Project A now. The chat gives the steps. In Project A, you will see shared state, a Redis leader and follower, replication lag and a manual failover on your own machine.</p>`,
+panel(box){
+  const qa=[
+   ["What is the difference between synchronous and asynchronous replication?","In synchronous replication, the leader waits for the follower to confirm before it replies to the client. The follower always has the latest data, but a slow follower stops writes. In asynchronous replication, the leader replies at once. Writes are fast, but a failover can lose confirmed writes."],
+   ["How do you add a new follower without downtime?","Take a consistent snapshot of the leader. Copy the snapshot to the new follower. Then the follower requests all log changes after the log position of the snapshot, and applies them."],
+   ["What is replication lag? Give one problem that it causes for a user.","Replication lag is the delay between a write on the leader and the same write on a follower. Example: a user posts a comment, then reads from a follower with lag, and does not see the comment."],
+   ["What is read-your-writes consistency? Give two methods to provide it.","A user always sees the data that the same user wrote. Method 1: read data that the user changed from the leader for a short time. Method 2: the client remembers the log position of its last write and reads only from a replica that has that position."],
+   ["Why can failover lose data?","With asynchronous replication, the old leader can have writes that no follower received. The new leader does not have these writes. Usually the system discards them when the old leader returns."],
+   ["What is split brain? How does a fencing token prevent damage?","Split brain occurs when two nodes think that they are the leader and both accept writes. A fencing token (epoch) is a number that increases with each new leader. Nodes and storage reject requests that have an old number."],
+   ["Why is statement-based replication not safe with NOW()?","Each replica runs the statement at a different time, thus NOW() gives a different value on each replica. Logical replication sends the row values instead, thus all replicas get the same value."],
+   ["When is multi-leader replication a good choice? What is its main problem?","It is a good choice for many datacenters, for apps that operate offline, and for collaborative editing. Its main problem is write conflicts."],
+   ["n = 5 in a leaderless system. Which values of w and r guarantee an overlap?","All values where w + r > 5. For example, w = 3 and r = 3, or w = 5 and r = 1."],
+   ["What is the difference between read repair and anti-entropy?","Read repair occurs during a read: the client writes the newest value to replicas that returned an old value. Anti-entropy is a background process that compares replicas and copies missing data, also for data that nobody reads."]
+  ];
+  box.innerHTML=`<section class="card"><h3>Compare the three methods</h3><div class="tablewrap"><table>
+  <thead><tr><th></th><th>Single-leader</th><th>Multi-leader</th><th>Leaderless</th></tr></thead><tbody>
+  <tr><th>Nodes that accept writes</th><td>One leader</td><td>Several leaders</td><td>Any replica</td></tr>
+  <tr><th>Write conflicts</th><td>No. One order of writes.</td><td>Yes</td><td>Yes</td></tr>
+  <tr><th>Main advantage</th><td>Simple. Easy to understand.</td><td>Fast local writes in many datacenters. Works offline.</td><td>No failover. A slow node does not stop requests.</td></tr>
+  <tr><th>Main problem</th><td>Failover. All writes go through one node.</td><td>Conflict resolution</td><td>Weaker consistency. Quorum edge cases.</td></tr>
+  <tr><th>Examples</th><td>PostgreSQL, MySQL, MongoDB, Redis</td><td>CouchDB, multi-datacenter MySQL tools, collaborative editors</td><td>Cassandra, ScyllaDB, Riak</td></tr>
+  </tbody></table></div></section>
+  <section class="card qa" style="margin-top:16px"><h3>Self-check questions</h3>${qa.map((q,i)=>`<details><summary>${i+1}. ${q[0]}</summary><p>${q[1]}</p></details>`).join("")}</section>`;
+}});
+
+/* ---------- app shell ---------- */
+function renderNav(){
+  const nav=$("#nav");nav.innerHTML="";
+  S.forEach((s,i)=>{const b=document.createElement("button");b.innerHTML=`<span class="n">${i+1}</span><span></span>`;b.lastChild.textContent=s.nav;
+    b.addEventListener("click",()=>load(i,true));nav.appendChild(b);});
+}
+function setPlayLabel(){$("#playBtn").textContent=ended?"Replay":(paused?"Resume":"Pause");}
+async function run(){
+  const t=++token;paused=false;ended=false;setPlayLabel();reset();
+  const sc=S[cur];
+  if(sc.static){if(!sc.noStage)sc.build(mode);return;}
+  sc.build(mode);
+  try{
+    await sleep(500);
+    await sc.play(mode);
+    if(t===token){ended=true;setPlayLabel();}
+  }catch(e){if(e!==CANCEL)console.error(e);}
+}
+function load(i,scroll){
+  cur=Math.max(0,Math.min(S.length-1,i));
+  const sc=S[cur];
+  mode=sc.modes?sc.modes[0].k:null;
+  $("#sNum").textContent=String(cur+1).padStart(2,"0")+" / "+S.length;
+  $("#sTitle").textContent=sc.title;
+  $("#intro").innerHTML=sc.intro.map(p=>`<p>${p}</p>`).join("");
+  $("#points").innerHTML=sc.points.map(p=>`<li>${p}</li>`).join("");
+  $("#side").innerHTML=sc.side||"";
+  const modes=$("#modes");modes.innerHTML="";
+  (sc.modes||[]).forEach(m=>{const b=document.createElement("button");b.textContent=m.l;b.setAttribute("aria-pressed",m.k===mode);
+    b.addEventListener("click",()=>{mode=m.k;modes.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));run();});modes.appendChild(b);});
+  const card=$("#stageCard");card.classList.toggle("static",!!sc.static);card.style.display=sc.noStage?"none":"";
+  $("#trWrap").style.display=sc.static?"none":"";
+  const custom=$("#custom");custom.innerHTML="";if(sc.panel)sc.panel(custom);
+  document.querySelectorAll("#nav button").forEach((b,k)=>b.setAttribute("aria-current",k===cur));
+  const navBtn=document.querySelectorAll("#nav button")[cur];if(navBtn&&navBtn.scrollIntoView&&window.innerWidth<880)navBtn.scrollIntoView({block:"nearest",inline:"center"});
+  $("#prev").disabled=cur===0;$("#next").disabled=cur===S.length-1;
+  $("#prev").textContent=cur>0?"Previous: "+S[cur-1].nav:"Previous topic";
+  $("#next").textContent=cur<S.length-1?"Next: "+S[cur+1].nav:"Next topic";
+  try{localStorage.setItem("repl-scene",String(cur));}catch(e){}
+  try{history.replaceState(null,"","#"+(cur+1));}catch(e){}
+  if(scroll)$("#main").scrollIntoView({behavior:"smooth",block:"start"});
+  run();
+}
+$("#playBtn").addEventListener("click",()=>{if(ended){run();return;}paused=!paused;setPlayLabel();});
+$("#replayBtn").addEventListener("click",()=>run());
+document.querySelectorAll(".speed button").forEach(b=>b.addEventListener("click",()=>{speed=+b.dataset.s;document.querySelectorAll(".speed button").forEach(x=>x.setAttribute("aria-pressed",x===b));}));
+$("#prev").addEventListener("click",()=>load(cur-1,true));
+$("#next").addEventListener("click",()=>load(cur+1,true));
+document.addEventListener("keydown",e=>{
+  const tg=e.target.tagName;if(tg==="INPUT"||tg==="TEXTAREA"||tg==="SELECT")return;
+  if(e.key==="ArrowRight")load(cur+1,true);
+  else if(e.key==="ArrowLeft")load(cur-1,true);
+  else if(e.key===" "&&tg!=="BUTTON"&&tg!=="SUMMARY"){e.preventDefault();$("#playBtn").click();}
+});
+/* theme */
+const themes=["auto","light","dark"];let ti=0;
+function applyTheme(){const t=themes[ti];if(t==="auto")document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme",t);$("#themeBtn").textContent="Theme: "+t;}
+try{const s=localStorage.getItem("repl-theme");if(s&&themes.includes(s))ti=themes.indexOf(s);}catch(e){}
+applyTheme();
+$("#themeBtn").addEventListener("click",()=>{ti=(ti+1)%3;applyTheme();try{localStorage.setItem("repl-theme",themes[ti]);}catch(e){}});
+
+renderNav();
+let start=0;
+const h=parseInt((location.hash||"").slice(1),10);
+if(h>=1&&h<=S.length)start=h-1;
+else{try{const s=parseInt(localStorage.getItem("repl-scene"),10);if(s>=0&&s<S.length)start=s;}catch(e){}}
+load(start,false);
+</script>
+</body>
+</html>
