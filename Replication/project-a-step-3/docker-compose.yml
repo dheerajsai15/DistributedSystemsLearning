@@ -5,6 +5,7 @@ services:
     environment:
       PORT: 3000
       REDIS_LEADER_HOST: redis
+      REDIS_FOLLOWER_HOST: redis-replica
 
   app2:
     build: ./app
@@ -12,6 +13,7 @@ services:
     environment:
       PORT: 3000
       REDIS_LEADER_HOST: redis
+      REDIS_FOLLOWER_HOST: redis-replica
 
   app3:
     build: ./app
@@ -19,9 +21,16 @@ services:
     environment:
       PORT: 3000
       REDIS_LEADER_HOST: redis
+      REDIS_FOLLOWER_HOST: redis-replica
 
   redis:
     image: redis:7
+
+  redis-replica:
+    image: redis:7
+    command: redis-server --replicaof redis 6379
+    depends_on:
+      - redis
 
   nginx:
     image: nginx

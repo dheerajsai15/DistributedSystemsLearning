@@ -4,6 +4,7 @@ this makes the server stateful and the answer depends on which server handles th
 2. When `app2` stopped, did any request fail? Which Nginx behavior caused this result?
 No request fails. After the request to app 2 times out, the Nginx automatically fails over to the next healthy server. 
 3. In Part 3, step 5, which guarantee did the follower violate?
+Read your writes
 4. What do the offset values in `INFO replication` show?
 5. Did Redis do a partial resync or a full resync in Part 3, step 9? Why?
 6. Redis replication is asynchronous. If the leader stops just after a post, can that post be lost? Why?
