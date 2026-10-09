@@ -6,6 +6,7 @@ services:
       PORT: 3000
       REDIS_LEADER_HOST: redis
       REDIS_FOLLOWER_HOST: redis-replica
+      RYW_WINDOW_MS: 20000
 
   app2:
     build: ./app
@@ -14,6 +15,7 @@ services:
       PORT: 3000
       REDIS_LEADER_HOST: redis
       REDIS_FOLLOWER_HOST: redis-replica
+      RYW_WINDOW_MS: 20000
 
   app3:
     build: ./app
@@ -22,6 +24,7 @@ services:
       PORT: 3000
       REDIS_LEADER_HOST: redis
       REDIS_FOLLOWER_HOST: redis-replica
+      RYW_WINDOW_MS: 20000
 
   redis:
     image: redis:7

@@ -1,11 +1,14 @@
 import express from "express";
 import os from "os";
 import Redis from "ioredis";
+import cookieParser from "cookie-parser";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const RYW_WINDOW_MS = Number(process.env.RYW_WINDOW_MS ?? 10000);
 
 app.use(express.json());
+app.use(cookieParser())
 
 const leader = new Redis({
   host: process.env.REDIS_LEADER_HOST ?? "redis",
@@ -54,6 +57,7 @@ app.post("/posts", async (req, res) => {
     }
 
     const len = await leader.lpush("posts", text);
+    res.cookie("lastWrite", String(Date.now()), { httpOnly: true, maxAge: RYW_WINDOW_MS })
     res.json({
       instance: os.hostname(),
       len,
@@ -71,7 +75,17 @@ app.post("/posts", async (req, res) => {
 app.get("/posts", async (req, res) => {
   try {
     // Choose one time, so the client and the label always agree
-    const servedBy = req.query.from === "leader" ? "leader" : "follower";
+    let servedBy: "leader" | "follower";
+    if (req.query.from === "leader") {
+      servedBy = "leader";
+    } else if (req.query.from === "follower") {
+      servedBy = "follower";
+    } else {
+      // A bad or missing cookie gives NaN, and NaN < anything is false
+      const lastWrite = Number(req.cookies.lastWrite);
+      const recentWrite = Number.isFinite(lastWrite) && Date.now() - lastWrite < RYW_WINDOW_MS;
+      servedBy = recentWrite ? "leader" : "follower";
+    }
     const client = servedBy === "leader" ? leader : follower;
     const posts = await client.lrange("posts", 0, -1);
     res.json({

@@ -6,6 +6,8 @@ No request fails. After the request to app 2 times out, the Nginx automatically 
 3. In Part 3, step 5, which guarantee did the follower violate?
 Read your writes
 4. What do the offset values in `INFO replication` show?
+The count of bytes executed on the current node
 5. Did Redis do a partial resync or a full resync in Part 3, step 9? Why?
+Full resync as the leader dint know the new history id of follower and now the latest replid will be send to leader hence full resync happens
 6. Redis replication is asynchronous. If the leader stops just after a post, can that post be lost? Why?
 7. In Part 4, which step prevented split brain? What can occur if nobody does that step?
